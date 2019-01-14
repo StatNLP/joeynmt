@@ -1,0 +1,9 @@
+/Users/sariya/speech_joey/joeynmt/develop/raw/1.1_1.wav
+/Users/sariya/speech_joey/joeynmt/develop/raw/1.1_2.wav
+/Users/sariya/speech_joey/joeynmt/develop/raw/1.1_3.wav
+/Users/sariya/speech_joey/joeynmt/develop/raw/1.1_4.wav
+/Users/sariya/speech_joey/joeynmt/develop/raw/1.1_5.wav
+/Users/sariya/speech_joey/joeynmt/develop/raw/1.1_6.wav
+/Users/sariya/speech_joey/joeynmt/develop/raw/1.1_7.wav
+/Users/sariya/speech_joey/joeynmt/develop/raw/1.1_8.wav
+/Users/sariya/speech_joey/joeynmt/develop/raw/1.1_9.wav
