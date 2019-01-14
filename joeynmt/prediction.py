@@ -3,8 +3,8 @@
 import torch
 
 from joeynmt.constants import PAD_TOKEN
-from joeynmt.helpers import load_data, arrays_to_sentences, bpe_postprocess, \
-    load_config, get_latest_checkpoint, make_data_iter, \
+from joeynmt.helpers import load_data, load_audio_data, arrays_to_sentences, \
+    bpe_postprocess, load_config, get_latest_checkpoint, make_data_iter, \
     load_model_from_checkpoint, store_attention_plots
 from joeynmt.metrics import bleu, chrf, token_accuracy, sequence_accuracy
 from joeynmt.model import build_model
@@ -159,7 +159,11 @@ def test(cfg_file,
 
     # load the data
     # TODO load only test data
-    train_data, dev_data, test_data, src_vocab, trg_vocab = \
+    if cfg.get("speech", True):
+        train_data, dev_data, test_data, src_vocab, trg_vocab = \
+        load_audio_data(cfg=cfg)
+    else:
+        train_data, dev_data, test_data, src_vocab, trg_vocab = \
         load_data(cfg=cfg)
 
     # TODO specify this differently

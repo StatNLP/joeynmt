@@ -13,9 +13,9 @@ import torch.nn as nn
 from joeynmt.model import build_model
 
 from joeynmt.batch import Batch
-from joeynmt.helpers import log_data_info, load_data, \
-    load_config, log_cfg, store_attention_plots, make_data_iter, \
-    load_model_from_checkpoint
+from joeynmt.helpers import log_data_info, log_audio_data_info, \
+    load_data, load_audio_data, load_config, log_cfg, store_attention_plots, \
+    make_data_iter, make_audio_data_iter, load_model_from_checkpoint
 from joeynmt.prediction import validate_on_data
 
 
@@ -208,7 +208,7 @@ class TrainManager:
         logger.info("Hello! This is Joey-NMT.")
         return logger
 
-    def train_and_validate(self, train_data, valid_data):
+    def train_and_validate(self, train_data, valid_data, config):
         """
         Train the model and validate it from time to time on the validation set.
 
@@ -216,7 +216,11 @@ class TrainManager:
         :param valid_data:
         :return:
         """
-        train_iter = make_data_iter(train_data, batch_size=self.batch_size,
+        if config.get("speech", True):
+            train_iter = make_audio_data_iter(train_data, batch_size=self.batch_size,
+                                            train=True, shuffle=self.shuffle)
+        else:
+            train_iter = make_data_iter(train_data, batch_size=self.batch_size,
                                     train=True, shuffle=self.shuffle)
         for epoch_no in range(self.epochs):
             self.logger.info("EPOCH {}".format(epoch_no + 1))
@@ -450,7 +454,11 @@ def train(cfg_file):
     np.random.seed(seed)
 
     # load the data
-    train_data, dev_data, test_data, src_vocab, trg_vocab = \
+    if cfg.get("speech", True):
+        train_data, dev_data, test_data, src_vocab, trg_vocab = \
+        load_audio_data(cfg=cfg)
+    else:
+        train_data, dev_data, test_data, src_vocab, trg_vocab = \
         load_data(cfg=cfg)
 
     # build an encoder-decoder model
@@ -465,9 +473,15 @@ def train(cfg_file):
     # print config
     log_cfg(cfg, trainer.logger)
 
-    log_data_info(train_data=train_data, valid_data=dev_data,
-                  test_data=test_data, src_vocab=src_vocab, trg_vocab=trg_vocab,
+    if cfg.get("speech", True):
+        log_audio_data_info(train_data=train_data, valid_data=dev_data,
+                  test_data=test_data, text_vocab=src_vocab, audio_vocab=trg_vocab,
                   logging_function=trainer.logger.info)
+    else:
+        log_data_info(train_data=train_data, valid_data=dev_data,
+                  test_data=test_data, text_vocab=src_vocab, audio_vocab=trg_vocab,
+                  logging_function=trainer.logger.info)
+    
     model.log_parameters_list(logging_function=trainer.logger.info)
 
     logging.info(model)
@@ -479,7 +493,7 @@ def train(cfg_file):
     trg_vocab.to_file(trg_vocab_file)
 
     # train the model
-    trainer.train_and_validate(train_data=train_data, valid_data=dev_data)
+    trainer.train_and_validate(train_data=train_data, valid_data=dev_data, config=cfg)
 
     if test_data is not None:
         # test model
