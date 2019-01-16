@@ -484,7 +484,7 @@ def train(cfg_file):
                   logging_function=trainer.logger.info)
     else:
         log_data_info(train_data=train_data, valid_data=dev_data,
-                  test_data=test_data, text_vocab=src_vocab, audio_vocab=trg_vocab,
+                  test_data=test_data, src_vocab=src_vocab, trg_vocab=trg_vocab,
                   logging_function=trainer.logger.info)
     
     model.log_parameters_list(logging_function=trainer.logger.info)
