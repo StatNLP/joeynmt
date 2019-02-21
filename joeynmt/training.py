@@ -5,6 +5,7 @@ import time
 import os
 import numpy as np
 import shutil
+import random
 
 
 import torch
@@ -457,6 +458,7 @@ def train(cfg_file):
     seed = cfg["training"].get("random_seed", 42)
     torch.manual_seed(seed)
     np.random.seed(seed)
+    random.seed(seed)
 
     # load the data
     if cfg.get("speech", True):
