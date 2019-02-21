@@ -14,8 +14,8 @@ import torch.nn as nn
 from joeynmt.model import build_model
 
 from joeynmt.batch import Batch
-from joeynmt.helpers import log_data_info, log_audio_data_info, \
-    load_data, load_audio_data, load_config, log_cfg, store_attention_plots, \
+from joeynmt.helpers import log_data_info, load_data, \
+    load_audio_data, load_config, log_cfg, store_attention_plots, \
     make_data_iter, load_model_from_checkpoint
 from joeynmt.prediction import validate_on_data
 
@@ -480,12 +480,7 @@ def train(cfg_file):
     # print config
     log_cfg(cfg, trainer.logger)
     
-    if cfg.get("speech", True):
-        log_audio_data_info(train_data=train_data, valid_data=dev_data,
-                  test_data=test_data, trg_vocab=trg_vocab,
-                  logging_function=trainer.logger.info)
-    else:
-        log_data_info(train_data=train_data, valid_data=dev_data,
+    log_data_info(train_data=train_data, valid_data=dev_data,
                   test_data=test_data, src_vocab=src_vocab, trg_vocab=trg_vocab,
                   logging_function=trainer.logger.info)
     

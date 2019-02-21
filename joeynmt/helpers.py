@@ -189,30 +189,6 @@ def log_data_info(train_data, valid_data, test_data, src_vocab, trg_vocab,
     logging_function("Number of Trg words (types): {}".format(len(trg_vocab)))
 
 
-def log_audio_data_info(train_data, valid_data, test_data, trg_vocab, logging_function):
-    """
-    Log statistics of audio data and vocabulary.
-
-    :param train_data:
-    :param valid_data:
-    :param test_data:
-    :param trg_vocab:
-    :param logging_function:
-    :return:
-    """
-    logging_function("Data set sizes: \n\ttrain {},\n\tvalid {},\n\ttest {}".format(
-        len(train_data), len(valid_data), len(test_data) if test_data is not None else "N/A"))
-
-    logging_function("First training example:\n\t[TRG] {}".format(
-        " ".join(train_data.gettext(0))))
-        #" ".join(train_data.getaudio(0))))
-
-    logging_function("First 10 words (trg): {}".format(" ".join(
-        '(%d) %s' % (i, t) for i, t in enumerate(trg_vocab.itos[:10]))))
-
-    logging_function("Number of Trg words (types): {}".format(len(trg_vocab)))
-
-
 def load_data(cfg):
     """
     Load train, dev and test data as specified in ccnfiguration.
@@ -425,14 +401,10 @@ class AudioDataset(TranslationDataset):
                     #print(audio_dummy)
                     if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 :
                         examples.append(data.Example.fromlist([text_line, sound, y, featuresT, audio_dummy], fields))
-                        #print(text_line, sound, y, features)
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
 
     def __len__(self):
         return len(self.examples)
-
-    def __getitem__(self, index):
-        return self.examples[index].src
 
     def gettext(self, index):
         return self.examples[index].trg
@@ -569,7 +541,6 @@ def make_data_iter(dataset, batch_size, train=False, shuffle=False):
             repeat=False, sort=False, dataset=dataset,
             batch_size=batch_size, train=True, sort_within_batch=True,
             sort_key=lambda x: len(x.src), shuffle=shuffle)
-            #sort_key=None, shuffle=shuffle)
     else:
         # don't sort/shuffle for validation/inference
         data_iter = data.Iterator(

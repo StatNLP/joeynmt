@@ -11,8 +11,8 @@ data: # specify your data here
     test: "develop/raw/head"  # test data for testing final model; optional
     level: "word" # segmentation level: either "word", "bpe" or "char"
     lowercase: True # lowercase the data, also for validation
-    max_sent_length: 15 # filter out longer sentences from training (src+trg)
-    max_audio_length: 1000 # filter out longer audio files from training
+    max_sent_length: 1500 # filter out longer sentences from training (src+trg)
+    max_audio_length: 10000 # filter out longer audio files from training
     voc_min_freq: 1 # minimum frequency for a token to become part of the vocabulary
     voc_limit: 100  # vocabulary only includes this many most frequent tokens, default: unlimited
     #src_vocab: "my_model/src_vocab.txt"  # if specified, load a vocabulary from this file
@@ -45,7 +45,7 @@ training: # specify training details here
     ckpt_metric: "eval_metric"  # when a new high score on this metric is achieved, a checkpoint is written, when "eval_metric" (default) is maximized, when "loss" or "ppl" is minimized
     model_dir: "testme_model" # directory where models and validation results are stored, required
     overwrite: True # overwrite existing model directory, default: False. Do not set to True unless for debugging!
-    shuffle: False # shuffle the training data, default: True
+    #shuffle: False # shuffle the training data, default: True
     use_cuda: False # use CUDA for acceleration on GPU, required. Set to False when working on CPU.
     #max_output_length: None  # maximum output length for decoding, default: None. If set to None, allow sentences of max 1.5*src length
     print_valid_sents: 3  # print this many validation sentences during each validation run
