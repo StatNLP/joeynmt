@@ -20,6 +20,7 @@ def build_model(cfg: dict = None,
     src_embed = Embeddings(
         **cfg["encoder"]["embeddings"], vocab_size=len(src_vocab),
         padding_idx=src_padding_idx)
+    #print(src_embed, "  EMBEDDINGS HERE")
 
     if cfg.get("tied_embeddings", False) \
         and src_vocab.itos == trg_vocab.itos:

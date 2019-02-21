@@ -19,6 +19,9 @@ class Batch:
         :param use_cuda:
         """
 
+        #print(torch_batch.src)
+        #print(torch_batch.mfcc)
+
         self.src, self.src_lengths = torch_batch.src
         self.src_mask = (self.src != pad_index).unsqueeze(-2)
         self.nseqs = self.src.size(0)
@@ -39,6 +42,7 @@ class Batch:
             # we exclude the padded areas from the loss computation
             self.trg_mask = (self.trg != pad_index)
             self.ntokens = (self.trg != pad_index).data.sum().item()
+        #print(self.trg_input.size(1), "   HERE")
 
         if use_cuda:
             self._make_cuda()

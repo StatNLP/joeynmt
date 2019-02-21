@@ -11,6 +11,7 @@ from collections import Counter
 import os.path
 import sys
 import torchaudio as ta
+import librosa
 
 from torchtext.datasets import TranslationDataset
 from torchtext import data
@@ -82,8 +83,6 @@ def build_vocab(field, max_size, min_freq, data, vocab_file=None):
                 tokens.extend(i.src)
             elif field == "trg":
                 tokens.extend(i.trg)
-            elif field == "text":
-                tokens.extend(i.text)
 
         counter = Counter(tokens)
         if min_freq > -1:
@@ -190,15 +189,13 @@ def log_data_info(train_data, valid_data, test_data, src_vocab, trg_vocab,
     logging_function("Number of Trg words (types): {}".format(len(trg_vocab)))
 
 
-def log_audio_data_info(train_data, valid_data, test_data, text_vocab, audio_vocab,
-                  logging_function):
+def log_audio_data_info(train_data, valid_data, test_data, trg_vocab, logging_function):
     """
     Log statistics of audio data and vocabulary.
 
     :param train_data:
     :param valid_data:
     :param test_data:
-    :param src_vocab:
     :param trg_vocab:
     :param logging_function:
     :return:
@@ -206,17 +203,14 @@ def log_audio_data_info(train_data, valid_data, test_data, text_vocab, audio_voc
     logging_function("Data set sizes: \n\ttrain {},\n\tvalid {},\n\ttest {}".format(
         len(train_data), len(valid_data), len(test_data) if test_data is not None else "N/A"))
 
-    logging_function("First training example:\n\t[TEXT] {}".format(
+    logging_function("First training example:\n\t[TRG] {}".format(
         " ".join(train_data.gettext(0))))
         #" ".join(train_data.getaudio(0))))
 
-    logging_function("First 10 words (text): {}".format(" ".join(
-        '(%d) %s' % (i, t) for i, t in enumerate(text_vocab.itos[:10]))))
-    logging_function("First 10 words (audio): {}".format(" ".join(
-        '(%d) %s' % (i, t) for i, t in enumerate(audio_vocab.itos[:10]))))
+    logging_function("First 10 words (trg): {}".format(" ".join(
+        '(%d) %s' % (i, t) for i, t in enumerate(trg_vocab.itos[:10]))))
 
-    logging_function("Number of Text words (types): {}".format(len(text_vocab)))
-    logging_function("Number of Audio words (types): {}".format(len(audio_vocab)))
+    logging_function("Number of Trg words (types): {}".format(len(trg_vocab)))
 
 
 def load_data(cfg):
@@ -253,6 +247,7 @@ def load_data(cfg):
                            unk_token=UNK_TOKEN,
                            batch_first=True, lower=lowercase,
                            include_lengths=True)
+    
     train_data = TranslationDataset(path=train_path,
                                     exts=("." + src_lang, "." + trg_lang),
                                     fields=(src_field, trg_field),
@@ -261,6 +256,7 @@ def load_data(cfg):
                                               <= max_sent_length and
                                               len(vars(x)['trg'])
                                               <= max_sent_length)
+   
     max_size = data_cfg.get("voc_limit", sys.maxsize)
     min_freq = data_cfg.get("voc_min_freq", 1)
     src_vocab_file = data_cfg.get("src_vocab", None)
@@ -282,7 +278,6 @@ def load_data(cfg):
                 fields=(src_field, trg_field))
         else:
             # no target is given -> create dataset from src only
-
             test_data = MonoDataset(path=test_path, ext="." + src_lang,
                                     field=(src_field))
     src_field.vocab = src_vocab
@@ -346,59 +341,54 @@ def load_audio_data(cfg):
     else:  # bpe or word, pre-tokenized
         tok_fun = lambda s: s.split()
 
-    text_field = data.Field(init_token=None, eos_token=EOS_TOKEN,
+    trg_field = data.Field(init_token=None, eos_token=EOS_TOKEN,
                         pad_token=PAD_TOKEN, tokenize=tok_fun,
                         batch_first=True, lower=lowercase,
                         unk_token=UNK_TOKEN,
                         include_lengths=True)
 
     train_data = AudioDataset(path=train_path, text_ext="." + audio_lang,
-                              audio_ext=".txt", field=text_field,
+                              audio_ext=".txt", field=trg_field,
                               filter_pred=
-                              lambda x: len(vars(x)['text'])
-                                        <= max_sent_length) #and
-                                        #len(vars(x)['audio'])
-                                        #<= max_audio_length)
+                              lambda x: len(vars(x)['src'])
+                                        <= max_audio_length and
+                                        len(vars(x)['trg'])
+                                        <= max_sent_length)
 
-    #print(len(vars(x)['text']))
-    print("Here is the length of the training dataset", len(train_data))
     #for x in range(len(train_data)):
+        #print(len(train_data.gettext(x)))
         #print(train_data[x])
         #print(train_data.gettext(x))
 
     max_size = data_cfg.get("voc_limit", sys.maxsize)
     min_freq = data_cfg.get("voc_min_freq", 1)
-    text_vocab_file = data_cfg.get(audio_lang + "_vocab", None)
-    audio_vocab_file = data_cfg.get(data_cfg["vocab"], None)
-    text_vocab = build_vocab(field="text", min_freq=min_freq, max_size=max_size,
-                            data=train_data, vocab_file=text_vocab_file)
-    print(text_vocab)
-    audio_vocab = build_vocab(field="audio", min_freq=min_freq, max_size=max_size,
-                            data=train_data, vocab_file=audio_vocab_file)
-    print(audio_vocab)
-
+    trg_vocab_file = data_cfg.get(audio_lang + "_vocab", None)
+    #trg_vocab_file = data_cfg.get(data_cfg["vocab"], None)
+    trg_vocab = build_vocab(field="trg", min_freq=min_freq, max_size=max_size,
+                            data=train_data, vocab_file=trg_vocab_file)
+    src_vocab = trg_vocab 
+    
     dev_data = AudioDataset(path=dev_path, text_ext="." + audio_lang,
-                                  audio_ext=".txt", field=text_field)
-    print("Here is the length of the dev dataset", len(dev_data))
+                                  audio_ext=".txt", field=trg_field)
     test_data = None
     if test_path is not None:
         # check if target exists
         if os.path.isfile(test_path+"."+audio_lang):
             test_data = AudioDataset(
                 path=test_path, text_ext="." + audio_lang,
-                audio_ext=".txt", field=text_field)
+                audio_ext=".txt", field=trg_field)
         else:
             # no target is given -> create dataset from src only
             test_data = MonoAudioDataset(path=test_path, audio_ext=".txt")
-    text_field.vocab = text_vocab
-    return train_data, dev_data, test_data, text_vocab, audio_vocab
+    trg_field.vocab = trg_vocab
+    return train_data, dev_data, test_data, src_vocab, trg_vocab
 
 
 class AudioDataset(TranslationDataset):
     """Defines a dataset for speech recognition/translation."""
 
     def __init__(self, path, text_ext, audio_ext, field, **kwargs):
-        """Create an AudioDataset given path and field.
+        """Create an AudioDataset given path and fields.
 
         Arguments:
             path: Prefix of path to the data file
@@ -408,7 +398,7 @@ class AudioDataset(TranslationDataset):
                 data.Dataset.
         """
         audio_field = data.RawField()
-        fields = [('text', field), ('audio', audio_field)]
+        fields = [('trg', field), ('audio', audio_field), ('audio2', audio_field), ('mfcc', audio_field), ('src', field)]
 
         text_path = os.path.expanduser(path + text_ext)
         audio_path = os.path.expanduser(path + audio_ext)
@@ -422,19 +412,30 @@ class AudioDataset(TranslationDataset):
                     text_line = text_line.strip()
                     audio_line = audio_line.strip()
                     sound, sample_rate = ta.load(audio_line)
+                    #print(sound.size, " SOUND")
+                    y, sr = librosa.load(audio_line, sr=None)
+                    #print(y.size, " SOUND_2")
+                    features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=5)
+                    #print(features.size, " MFCC", features.shape, " SHAPE")
+                    featuresT = features.T
+                    #print(features[:, 0]) # print mfccs for the first window
+                    #print(featuresT)
+                    #print(featuresT.size, " MFCC_T", featuresT.shape, " SHAPE", featuresT.shape[0], " DIMENSION")
+                    audio_dummy = "0 " * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
+                    #print(audio_dummy)
                     if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 :
-                        examples.append(data.Example.fromlist([text_line, sound], fields))
-                        #print(text_line, sound)
+                        examples.append(data.Example.fromlist([text_line, sound, y, featuresT, audio_dummy], fields))
+                        #print(text_line, sound, y, features)
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
 
     def __len__(self):
         return len(self.examples)
 
     def __getitem__(self, index):
-        return self.examples[index].text, self.examples[index].audio
+        return self.examples[index].src
 
     def gettext(self, index):
-        return self.examples[index].text
+        return self.examples[index].trg
 
     def getaudio(self, index):
         return self.examples[index].audio
@@ -454,7 +455,9 @@ class MonoAudioDataset(TranslationDataset):
                 data.Dataset.
         """
         audio_field = data.RawField()
-        fields = [('audio', audio_field)]
+        fields = [('src', audio_field)]
+
+        #TODO extend fields here
 
         audio_path = os.path.expanduser(path + audio_ext)
         examples = []
@@ -471,7 +474,8 @@ class MonoAudioDataset(TranslationDataset):
         return len(self.examples)
 
     def __getitem__(self, index):
-        return self.examples[index].audio
+        return self.examples[index].src
+
 
 
 def load_config(path="configs/default.yaml"):
@@ -565,31 +569,7 @@ def make_data_iter(dataset, batch_size, train=False, shuffle=False):
             repeat=False, sort=False, dataset=dataset,
             batch_size=batch_size, train=True, sort_within_batch=True,
             sort_key=lambda x: len(x.src), shuffle=shuffle)
-    else:
-        # don't sort/shuffle for validation/inference
-        data_iter = data.Iterator(
-            repeat=False, dataset=dataset, batch_size=batch_size,
-            train=False, sort=False)
-
-    return data_iter
-
-
-def make_audio_data_iter(dataset, batch_size, train=False, shuffle=False):
-    """
-    Returns a torchtext iterator for a torchtext dataset.
-
-    :param dataset:
-    :param batch_size:
-    :param train:
-    :param shuffle:
-    :return:
-    """
-    if train:
-        # optionally shuffle and sort during training
-        data_iter = data.BucketIterator(
-            repeat=False, sort=False, dataset=dataset,
-            batch_size=batch_size, train=True, sort_within_batch=True,
-            sort_key=lambda x: len(x.text), shuffle=shuffle)
+            #sort_key=None, shuffle=shuffle)
     else:
         # don't sort/shuffle for validation/inference
         data_iter = data.Iterator(

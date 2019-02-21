@@ -15,7 +15,7 @@ from joeynmt.model import build_model
 from joeynmt.batch import Batch
 from joeynmt.helpers import log_data_info, log_audio_data_info, \
     load_data, load_audio_data, load_config, log_cfg, store_attention_plots, \
-    make_data_iter, make_audio_data_iter, load_model_from_checkpoint
+    make_data_iter, load_model_from_checkpoint
 from joeynmt.prediction import validate_on_data
 
 
@@ -221,12 +221,10 @@ class TrainManager:
         :param valid_data:
         :return:
         """
-        if config.get("speech", True):
-            train_iter = make_audio_data_iter(train_data, batch_size=self.batch_size,
-                                            train=True, shuffle=self.shuffle)
-        else:
-            train_iter = make_data_iter(train_data, batch_size=self.batch_size,
+            
+        train_iter = make_data_iter(train_data, batch_size=self.batch_size,
                                     train=True, shuffle=self.shuffle)
+        
         for epoch_no in range(self.epochs):
             self.logger.info("EPOCH {}".format(epoch_no + 1))
             self.model.train()
@@ -239,6 +237,8 @@ class TrainManager:
             for batch_no, batch in enumerate(iter(train_iter), 1):
                 # reactivate training
                 self.model.train()
+
+                #print(batch)
                 batch = Batch(batch, self.pad_index, use_cuda=self.use_cuda)
 
                 # only update every batch_multiplier batches
@@ -477,10 +477,10 @@ def train(cfg_file):
 
     # print config
     log_cfg(cfg, trainer.logger)
-
+    
     if cfg.get("speech", True):
         log_audio_data_info(train_data=train_data, valid_data=dev_data,
-                  test_data=test_data, text_vocab=src_vocab, audio_vocab=trg_vocab,
+                  test_data=test_data, trg_vocab=trg_vocab,
                   logging_function=trainer.logger.info)
     else:
         log_data_info(train_data=train_data, valid_data=dev_data,

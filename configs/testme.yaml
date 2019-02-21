@@ -17,7 +17,7 @@ data: # specify your data here
     voc_limit: 100  # vocabulary only includes this many most frequent tokens, default: unlimited
     #src_vocab: "my_model/src_vocab.txt"  # if specified, load a vocabulary from this file
     #trg_vocab: "my_model/trg_vocab.txt"  # one token per line, line number is index
-    vocab: "develop/raw/vocab" # for testing purposes only
+    #vocab: "develop/raw/vocab" # for testing purposes only
 
 testing:  # specify which inference algorithm to use for testing (for validation it's always greedy decoding)
     beam_size: 5  # size of the beam for beam search
@@ -57,15 +57,18 @@ model:  # specify your model architecture here
         embeddings:
             embedding_dim: 8 # size of embeddings
             scale: False  # scale the embeddings by sqrt of their size, default: False
+            freeze: True  # if True, embeddings are not updated during training
         hidden_size: 10 # size of RNN
         bidirectional: True # use a bi-directional encoder, default: True
         dropout: 0.2  # apply dropout to the inputs to the RNN, default: 0.0
         num_layers: 1 # stack this many layers of equal size, default: 1
+        freeze: False  # if True, encoder parameters are not updated during training (does not include embedding parameters)
     decoder:
         type: "gru"
         embeddings:
             embedding_dim: 8
             scale: False
+            freeze: False  # if True, embeddings are not updated during training
         hidden_size: 10
         dropout: 0.2
         hidden_dropout: 0.2 # apply dropout to the attention vector, default: 0.0
@@ -73,3 +76,4 @@ model:  # specify your model architecture here
         input_feeding: True # combine hidden state and attention vector before feeding to rnn, default: True
         bridge: True # bridge between encoder and decoder: use linear projection of last encoder state to initialize decoder initial state, default: False
         attention: "bahdanau" # attention mechanism, choices: "bahdanau" (MLP attention), "luong" (bilinear attention), default: "bahdanau"
+        freeze: False  # if True, decoder parameters are not updated during training (does not include embedding parameters, but attention)
