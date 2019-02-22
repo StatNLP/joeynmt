@@ -45,7 +45,6 @@ class Batch:
                 padded_mfcc.append(m(x))
             #for y in padded_mfcc:
                 #print(y.shape[0])
-            #print(torch.stack(padded_mfcc))
             self.mfcc = padded_mfcc
 
         if hasattr(torch_batch, "trg"):

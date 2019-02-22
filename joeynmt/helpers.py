@@ -315,8 +315,10 @@ def load_audio_data(cfg):
 
     if level == "char":
         tok_fun = lambda s: list(s)
+        char = True
     else:  # bpe or word, pre-tokenized
         tok_fun = lambda s: s.split()
+        char = False
 
     trg_field = data.Field(init_token=None, eos_token=EOS_TOKEN,
                         pad_token=PAD_TOKEN, tokenize=tok_fun,
@@ -326,7 +328,7 @@ def load_audio_data(cfg):
 
     train_data = AudioDataset(path=train_path, text_ext="." + audio_lang,
                               audio_ext=".txt", field=trg_field, num=mfcc_number,
-                              filter_pred=
+                              char_level=char, filter_pred=
                               lambda x: len(vars(x)['src'])
                                         <= max_audio_length and
                                         len(vars(x)['trg'])
@@ -346,14 +348,16 @@ def load_audio_data(cfg):
     src_vocab = trg_vocab 
     
     dev_data = AudioDataset(path=dev_path, text_ext="." + audio_lang,
-                                  audio_ext=".txt", field=trg_field, num=mfcc_number)
+                                  audio_ext=".txt", field=trg_field, num=mfcc_number, 
+                                  char_level=char)
     test_data = None
     if test_path is not None:
         # check if target exists
         if os.path.isfile(test_path+"."+audio_lang):
             test_data = AudioDataset(
                 path=test_path, text_ext="." + audio_lang,
-                audio_ext=".txt", field=trg_field, num=mfcc_number)
+                audio_ext=".txt", field=trg_field, num=mfcc_number, 
+                char_level=char)
         else:
             # no target is given -> create dataset from src only
             test_data = MonoAudioDataset(path=test_path, audio_ext=".txt")
@@ -364,7 +368,7 @@ def load_audio_data(cfg):
 class AudioDataset(TranslationDataset):
     """Defines a dataset for speech recognition/translation."""
 
-    def __init__(self, path, text_ext, audio_ext, field, num, **kwargs):
+    def __init__(self, path, text_ext, audio_ext, field, num, char_level, **kwargs):
         """Create an AudioDataset given path and fields.
 
         Arguments:
@@ -395,7 +399,10 @@ class AudioDataset(TranslationDataset):
                     #print(features[:, 0]) # print mfccs for the first window
                     featureS = torch.Tensor(featuresT)
                     #print(featureS.size, " MFCC_T", featureS.shape, " SHAPE", featureS.shape[0], " DIMENSION")
-                    audio_dummy = "0 " * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
+                    if char_level : 
+                        audio_dummy = "a" * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
+                    else :
+                        audio_dummy = "a " * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
                     if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 :
                         examples.append(data.Example.fromlist([text_line, sound, y, featureS, audio_dummy], fields))
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
