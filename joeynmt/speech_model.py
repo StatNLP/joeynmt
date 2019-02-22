@@ -1,6 +1,7 @@
 # coding: utf-8
 import torch.nn as nn
 import torch.nn.functional as F
+import torch
 import numpy as np
 from joeynmt.initialization import initialize_model
 from joeynmt.embeddings import Embeddings
@@ -11,7 +12,7 @@ from joeynmt.search import beam_search, greedy
 from joeynmt.vocabulary import Vocabulary
 
 
-def build_model(cfg: dict = None,
+def build_speech_model(cfg: dict = None,
                 src_vocab: Vocabulary = None,
                 trg_vocab: Vocabulary = None):
     src_padding_idx = src_vocab.stoi[PAD_TOKEN]
@@ -20,6 +21,7 @@ def build_model(cfg: dict = None,
     src_embed = Embeddings(
         **cfg["encoder"]["embeddings"], vocab_size=len(src_vocab),
         padding_idx=src_padding_idx)
+    #print(src_embed, "  EMBEDDINGS HERE")
 
     if cfg.get("tied_embeddings", False) \
         and src_vocab.itos == trg_vocab.itos:
@@ -82,7 +84,7 @@ class Model(nn.Module):
         self.pad_index = self.trg_vocab.stoi[PAD_TOKEN]
         self.eos_index = self.trg_vocab.stoi[EOS_TOKEN]
 
-    def forward(self, src, trg_input, src_mask, src_lengths):
+    def forward(self, src, trg_input, src_mask, src_lengths, src_mfcc):
         """
         Take in and process masked src and target sequences.
         Use the encoder hidden state to initialize the decoder
@@ -94,16 +96,18 @@ class Model(nn.Module):
         :param src_lengths:
         :return: decoder outputs
         """
+        #print("WE ARE INSIDE OF forward and here are mfccs") #, src_mfcc)
         encoder_output, encoder_hidden = self.encode(src=src,
                                                      src_length=src_lengths,
-                                                     src_mask=src_mask)
+                                                     src_mask=src_mask,
+                                                     mfcc=src_mfcc)
         unrol_steps = trg_input.size(1)
         return self.decode(encoder_output=encoder_output,
                            encoder_hidden=encoder_hidden,
                            src_mask=src_mask, trg_input=trg_input,
                            unrol_steps=unrol_steps)
 
-    def encode(self, src, src_length, src_mask):
+    def encode(self, src, src_length, src_mask, mfcc):
         """
         Encodes the source sentence.
         TODO adapt to transformer
@@ -113,7 +117,10 @@ class Model(nn.Module):
         :param src_mask:
         :return:
         """
-        return self.encoder(self.src_embed(src), src_length, src_mask)
+        mfcc = torch.stack(mfcc)
+        #print(mfcc.shape, "COMPARE TO ", self.src_embed(src).shape)
+        #print("ENCODE   ", self.src_embed(src))
+        return self.encoder(mfcc, src_length, src_mask)
 
     def decode(self, encoder_output, encoder_hidden, src_mask, trg_input,
                unrol_steps, decoder_hidden=None):
@@ -146,7 +153,7 @@ class Model(nn.Module):
         """
         out, hidden, att_probs, _ = self.forward(
             src=batch.src, trg_input=batch.trg_input,
-            src_mask=batch.src_mask, src_lengths=batch.src_lengths)
+            src_mask=batch.src_mask, src_lengths=batch.src_lengths, src_mfcc=batch.mfcc)
 
         # compute log probs
         log_probs = F.log_softmax(out, dim=-1)
@@ -168,9 +175,10 @@ class Model(nn.Module):
         :param beam_alpha:
         :return:
         """
+        #print("WE ARE INSIDE OF run_batch")
         encoder_output, encoder_hidden = self.encode(
             batch.src, batch.src_lengths,
-            batch.src_mask)
+            batch.src_mask, batch.mfcc)
 
         # if maximum output length is not globally specified, adapt to src len
         if max_output_length is None:

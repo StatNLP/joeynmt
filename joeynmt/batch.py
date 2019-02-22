@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn as nn
 
 
 class Batch:
@@ -31,6 +32,21 @@ class Batch:
         self.trg_lengths = None
         self.ntokens = None
         self.use_cuda = use_cuda
+        
+        if hasattr(torch_batch, "mfcc"):
+            self.mfcc = torch_batch.mfcc
+            #for x in self.mfcc:
+                #print(x.shape[0])
+            max_tensor = max(self.mfcc, key=lambda x: x.shape[0])
+            max_dim = max_tensor.shape[0]
+            padded_mfcc = []
+            for x in self.mfcc: 
+                m = nn.ZeroPad2d((0, 0, 0, max_dim-x.shape[0]))
+                padded_mfcc.append(m(x))
+            #for y in padded_mfcc:
+                #print(y.shape[0])
+            #print(torch.stack(padded_mfcc))
+            self.mfcc = padded_mfcc
 
         if hasattr(torch_batch, "trg"):
             trg, trg_lengths = torch_batch.trg

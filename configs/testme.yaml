@@ -11,8 +11,8 @@ data: # specify your data here
     test: "develop/raw/head"  # test data for testing final model; optional
     level: "word" # segmentation level: either "word", "bpe" or "char"
     lowercase: True # lowercase the data, also for validation
-    max_sent_length: 1500 # filter out longer sentences from training (src+trg)
-    max_audio_length: 10000 # filter out longer audio files from training
+    max_sent_length: 150 # filter out longer sentences from training (src+trg)
+    max_audio_length: 1000 # filter out longer audio files from training
     voc_min_freq: 1 # minimum frequency for a token to become part of the vocabulary
     voc_limit: 100  # vocabulary only includes this many most frequent tokens, default: unlimited
     #src_vocab: "my_model/src_vocab.txt"  # if specified, load a vocabulary from this file

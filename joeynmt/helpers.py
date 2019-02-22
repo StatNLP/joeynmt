@@ -311,6 +311,7 @@ def load_audio_data(cfg):
     lowercase = data_cfg["lowercase"]
     max_sent_length = data_cfg["max_sent_length"]
     max_audio_length = data_cfg["max_audio_length"]
+    mfcc_number = cfg["model"]["encoder"]["embeddings"]["embedding_dim"]
 
     if level == "char":
         tok_fun = lambda s: list(s)
@@ -324,7 +325,7 @@ def load_audio_data(cfg):
                         include_lengths=True)
 
     train_data = AudioDataset(path=train_path, text_ext="." + audio_lang,
-                              audio_ext=".txt", field=trg_field,
+                              audio_ext=".txt", field=trg_field, num=mfcc_number,
                               filter_pred=
                               lambda x: len(vars(x)['src'])
                                         <= max_audio_length and
@@ -345,14 +346,14 @@ def load_audio_data(cfg):
     src_vocab = trg_vocab 
     
     dev_data = AudioDataset(path=dev_path, text_ext="." + audio_lang,
-                                  audio_ext=".txt", field=trg_field)
+                                  audio_ext=".txt", field=trg_field, num=mfcc_number)
     test_data = None
     if test_path is not None:
         # check if target exists
         if os.path.isfile(test_path+"."+audio_lang):
             test_data = AudioDataset(
                 path=test_path, text_ext="." + audio_lang,
-                audio_ext=".txt", field=trg_field)
+                audio_ext=".txt", field=trg_field, num=mfcc_number)
         else:
             # no target is given -> create dataset from src only
             test_data = MonoAudioDataset(path=test_path, audio_ext=".txt")
@@ -363,7 +364,7 @@ def load_audio_data(cfg):
 class AudioDataset(TranslationDataset):
     """Defines a dataset for speech recognition/translation."""
 
-    def __init__(self, path, text_ext, audio_ext, field, **kwargs):
+    def __init__(self, path, text_ext, audio_ext, field, num, **kwargs):
         """Create an AudioDataset given path and fields.
 
         Arguments:
@@ -388,19 +389,15 @@ class AudioDataset(TranslationDataset):
                     text_line = text_line.strip()
                     audio_line = audio_line.strip()
                     sound, sample_rate = ta.load(audio_line)
-                    #print(sound.size, " SOUND")
                     y, sr = librosa.load(audio_line, sr=None)
-                    #print(y.size, " SOUND_2")
-                    features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=5)
-                    #print(features.size, " MFCC", features.shape, " SHAPE")
+                    features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num)
                     featuresT = features.T
                     #print(features[:, 0]) # print mfccs for the first window
-                    #print(featuresT)
-                    #print(featuresT.size, " MFCC_T", featuresT.shape, " SHAPE", featuresT.shape[0], " DIMENSION")
+                    featureS = torch.Tensor(featuresT)
+                    #print(featureS.size, " MFCC_T", featureS.shape, " SHAPE", featureS.shape[0], " DIMENSION")
                     audio_dummy = "0 " * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
-                    #print(audio_dummy)
                     if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 :
-                        examples.append(data.Example.fromlist([text_line, sound, y, featuresT, audio_dummy], fields))
+                        examples.append(data.Example.fromlist([text_line, sound, y, featureS, audio_dummy], fields))
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
 
     def __len__(self):
@@ -444,10 +441,6 @@ class MonoAudioDataset(TranslationDataset):
 
     def __len__(self):
         return len(self.examples)
-
-    def __getitem__(self, index):
-        return self.examples[index].src
-
 
 
 def load_config(path="configs/default.yaml"):

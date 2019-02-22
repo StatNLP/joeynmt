@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 
 from joeynmt.model import build_model
+from joeynmt.speech_model import build_speech_model
 
 from joeynmt.batch import Batch
 from joeynmt.helpers import log_data_info, load_data, \
@@ -469,7 +470,10 @@ def train(cfg_file):
         load_data(cfg=cfg)
 
     # build an encoder-decoder model
-    model = build_model(cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
+    if cfg.get("speech", True):
+        model = build_speech_model(cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
+    else:
+        model = build_model(cfg["model"], src_vocab=src_vocab, trg_vocab=trg_vocab)
 
     # for training management, e.g. early stopping and model selection
     trainer = TrainManager(model=model, config=cfg)
