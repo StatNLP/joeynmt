@@ -384,6 +384,12 @@ class AudioDataset(TranslationDataset):
         text_path = os.path.expanduser(path + text_ext)
         audio_path = os.path.expanduser(path + audio_ext)
         examples = []
+        maxi = 1
+        mini = 10
+        summa = 0 
+        count = 0
+        log_path = os.path.expanduser(path + '_length_statistics')
+        length_info = open(log_path, 'a')
 
         if len(open(text_path).read().splitlines()) != len(open(audio_path).read().splitlines()):
             raise IndexError('The size of the text and audio dataset differs.')
@@ -405,6 +411,16 @@ class AudioDataset(TranslationDataset):
                         audio_dummy = "a " * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
                     if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 :
                         examples.append(data.Example.fromlist([text_line, sound, y, featureS, audio_dummy], fields))
+                        #length_info.write('COMPARE AUDIO LENGTH {0} TO TEXT LENGTH {1} \n'.format(featuresT.shape[0], len(text_line) + 1))
+                        check = featuresT.shape[0] // (len(text_line) + 1)
+                        if check > maxi: 
+                            maxi = check 
+                        if check < mini:
+                            mini = check
+                        summa += check 
+                        count += 1
+        length_info.write('mini={0}, maxi={1}, median={2} \n'.format(mini, maxi, summa/count))
+        length_info.close()
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
 
     def __len__(self):

@@ -58,6 +58,7 @@ class Batch:
             self.trg_mask = (self.trg != pad_index)
             self.ntokens = (self.trg != pad_index).data.sum().item()
         #print(self.trg_input.size(1), "   HERE")
+        #print(trg_lengths)
 
         if use_cuda:
             self._make_cuda()
@@ -75,6 +76,12 @@ class Batch:
             self.trg_input = self.trg_input.cuda()
             self.trg = self.trg.cuda()
             self.trg_mask = self.trg_mask.cuda()
+
+        if hasattr(self, "mfcc"):
+            cuda_mfcc = []
+            for y in self.mfcc:
+                cuda_mfcc.append(y.cuda())
+            self.mfcc = cuda_mfcc
 
     def sort_by_src_lengths(self):
         """
