@@ -21,7 +21,6 @@ def build_speech_model(cfg: dict = None,
     src_embed = Embeddings(
         **cfg["encoder"]["embeddings"], vocab_size=len(src_vocab),
         padding_idx=src_padding_idx)
-    #print(src_embed, "  EMBEDDINGS HERE")
 
     if cfg.get("tied_embeddings", False) \
         and src_vocab.itos == trg_vocab.itos:
@@ -96,7 +95,6 @@ class Model(nn.Module):
         :param src_lengths:
         :return: decoder outputs
         """
-        #print("WE ARE INSIDE OF forward and here are mfccs") #, src_mfcc)
         encoder_output, encoder_hidden = self.encode(src=src,
                                                      src_length=src_lengths,
                                                      src_mask=src_mask,
@@ -117,9 +115,7 @@ class Model(nn.Module):
         :param src_mask:
         :return:
         """
-        mfcc = torch.stack(mfcc)
         #print(mfcc.shape, "COMPARE TO ", self.src_embed(src).shape)
-        #print("ENCODE   ", self.src_embed(src))
         return self.encoder(mfcc, src_length, src_mask)
 
     def decode(self, encoder_output, encoder_hidden, src_mask, trg_input,
@@ -175,7 +171,6 @@ class Model(nn.Module):
         :param beam_alpha:
         :return:
         """
-        #print("WE ARE INSIDE OF run_batch")
         encoder_output, encoder_hidden = self.encode(
             batch.src, batch.src_lengths,
             batch.src_mask, batch.mfcc)

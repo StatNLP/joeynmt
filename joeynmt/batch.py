@@ -20,9 +20,6 @@ class Batch:
         :param use_cuda:
         """
 
-        #print(torch_batch.src)
-        #print(torch_batch.mfcc)
-
         self.src, self.src_lengths = torch_batch.src
         self.src_mask = (self.src != pad_index).unsqueeze(-2)
         self.nseqs = self.src.size(0)
@@ -45,7 +42,7 @@ class Batch:
                 padded_mfcc.append(m(x))
             #for y in padded_mfcc:
                 #print(y.shape[0])
-            self.mfcc = padded_mfcc
+            self.mfcc = torch.stack(padded_mfcc)
 
         if hasattr(torch_batch, "trg"):
             trg, trg_lengths = torch_batch.trg
@@ -78,10 +75,7 @@ class Batch:
             self.trg_mask = self.trg_mask.cuda()
 
         if hasattr(self, "mfcc"):
-            cuda_mfcc = []
-            for y in self.mfcc:
-                cuda_mfcc.append(y.cuda())
-            self.mfcc = cuda_mfcc
+            self.mfcc = self.mfcc.cuda()
 
     def sort_by_src_lengths(self):
         """
@@ -102,7 +96,10 @@ class Batch:
             sorted_trg_lengths = self.trg_lengths[perm_index]
             sorted_trg_mask = self.trg_mask[perm_index]
             sorted_trg = self.trg[perm_index]
-
+        if hasattr(self, "mfcc"):
+            sorted_mfcc = self.mfcc[perm_index]
+            self.mfcc = sorted_mfcc
+            
         self.src = sorted_src
         self.src_lengths = sorted_src_lengths
         self.src_mask = sorted_src_mask
