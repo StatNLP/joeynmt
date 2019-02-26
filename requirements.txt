@@ -3,6 +3,6 @@ torch>=0.4.1
 matplotlib
 sacrebleu>=1.2.10
 seaborn
-torchtext
 pyyaml
 subword-nmt
+librosa
