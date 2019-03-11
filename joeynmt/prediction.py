@@ -161,10 +161,10 @@ def test(cfg_file,
     # load the data
     if cfg.get("speech", True):
         _, dev_data, test_data, src_vocab, trg_vocab = \
-        load_audio_data(cfg=cfg)
+            load_audio_data(cfg=cfg)
     else:
         _, dev_data, test_data, src_vocab, trg_vocab = \
-        load_data(cfg=cfg)
+            load_data(cfg=cfg)
 
     data_to_predict = {"dev": dev_data, "test": test_data}
 

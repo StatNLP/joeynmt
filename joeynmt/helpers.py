@@ -236,6 +236,7 @@ def load_data(cfg):
                            unk_token=UNK_TOKEN,
                            batch_first=True, lower=lowercase,
                            include_lengths=True)
+
     train_data = TranslationDataset(path=train_path,
                                     exts=("." + src_lang, "." + trg_lang),
                                     fields=(src_field, trg_field),
