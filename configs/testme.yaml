@@ -9,7 +9,7 @@ data: # specify your data here
     train: "develop/raw/head"  # training data
     dev: "develop/raw/head"  # development data for validation
     test: "develop/raw/head"  # test data for testing final model; optional
-    level: "word" # segmentation level: either "word", "bpe" or "char"
+    level: "char" # segmentation level: either "word", "bpe" or "char"
     lowercase: True # lowercase the data, also for validation
     max_sent_length: 150 # filter out longer sentences from training (src+trg)
     max_audio_length: 1000 # filter out longer audio files from training
@@ -33,7 +33,7 @@ training: # specify training details here
     clip_grad_val: 1.0  # clip the gradients to this value when they exceed it, optional
     #clip_grad_norm: 1.0  # norm clipping instead of value clipping
     weight_decay: 0.1 # l2 regularization, default: 0
-    batch_size: 3  # mini-batch size, required
+    batch_size: 5  # mini-batch size, required
     scheduling: "plateau" # learning rate scheduling, optional, if not specified stays constant, options: "plateau", "exponential", "decaying"
     patience: 5 # specific to plateau scheduler: wait for this many validations without improvement before decreasing the learning rate
     decrease_factor: 0.5  # specific to plateau & exponential scheduler: decrease the learning rate by this factor
@@ -46,7 +46,7 @@ training: # specify training details here
     model_dir: "testme_model" # directory where models and validation results are stored, required
     overwrite: True # overwrite existing model directory, default: False. Do not set to True unless for debugging!
     #shuffle: False # shuffle the training data, default: True
-    use_cuda: False # use CUDA for acceleration on GPU, required. Set to False when working on CPU.
+    use_cuda: True # use CUDA for acceleration on GPU, required. Set to False when working on CPU.
     #max_output_length: None  # maximum output length for decoding, default: None. If set to None, allow sentences of max 1.5*src length
     print_valid_sents: 3  # print this many validation sentences during each validation run
 

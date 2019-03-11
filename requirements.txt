@@ -6,3 +6,4 @@ seaborn
 pyyaml
 subword-nmt
 librosa
+pylint

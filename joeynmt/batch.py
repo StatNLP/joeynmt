@@ -2,6 +2,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+# coding: utf-8
+
+"""
+Implementation of a mini-batch.
+"""
+
 
 class Batch:
     """Object for holding a batch of data with mask during training.
@@ -19,7 +25,6 @@ class Batch:
         :param pad_index:
         :param use_cuda:
         """
-
         self.src, self.src_lengths = torch_batch.src
         self.src_mask = (self.src != pad_index).unsqueeze(-2)
         self.nseqs = self.src.size(0)
@@ -83,7 +88,7 @@ class Batch:
 
         :return:
         """
-        lengths, perm_index = self.src_lengths.sort(0, descending=True)
+        _, perm_index = self.src_lengths.sort(0, descending=True)
         rev_index = [0]*perm_index.size(0)
         for new_pos, old_pos in enumerate(perm_index.cpu().numpy()):
             rev_index[old_pos] = new_pos
