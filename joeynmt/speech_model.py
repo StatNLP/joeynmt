@@ -1,8 +1,15 @@
 # coding: utf-8
+"""
+Module to represents whole speech models
+"""
+
+from typing import Callable
+import numpy as np
+
 import torch.nn as nn
 import torch.nn.functional as F
-import torch
-import numpy as np
+from torch import Tensor
+
 from joeynmt.initialization import initialize_model
 from joeynmt.embeddings import Embeddings
 from joeynmt.encoders import Encoder, RecurrentEncoder
@@ -10,40 +17,7 @@ from joeynmt.decoders import Decoder, RecurrentDecoder
 from joeynmt.constants import PAD_TOKEN, EOS_TOKEN, BOS_TOKEN
 from joeynmt.search import beam_search, greedy
 from joeynmt.vocabulary import Vocabulary
-
-
-def build_speech_model(cfg: dict = None,
-                src_vocab: Vocabulary = None,
-                trg_vocab: Vocabulary = None):
-    src_padding_idx = src_vocab.stoi[PAD_TOKEN]
-    trg_padding_idx = trg_vocab.stoi[PAD_TOKEN]
-
-    src_embed = Embeddings(
-        **cfg["encoder"]["embeddings"], vocab_size=len(src_vocab),
-        padding_idx=src_padding_idx)
-
-    if cfg.get("tied_embeddings", False) \
-        and src_vocab.itos == trg_vocab.itos:
-        # share embeddings for src and trg
-        trg_embed = src_embed
-    else:
-        trg_embed = Embeddings(
-            **cfg["decoder"]["embeddings"], vocab_size=len(trg_vocab),
-            padding_idx=trg_padding_idx)
-
-    encoder = RecurrentEncoder(**cfg["encoder"],
-                               emb_size=src_embed.embedding_dim)
-    decoder = RecurrentDecoder(**cfg["decoder"], encoder=encoder,
-                               vocab_size=len(trg_vocab),
-                               emb_size=trg_embed.embedding_dim)
-    model = Model(encoder=encoder, decoder=decoder,
-                  src_embed=src_embed, trg_embed=trg_embed,
-                  src_vocab=src_vocab, trg_vocab=trg_vocab)
-
-    # custom initialization of model parameters
-    initialize_model(model, cfg, src_padding_idx, trg_padding_idx)
-
-    return model
+from joeynmt.batch import Batch
 
 
 class Model(nn.Module):
@@ -52,27 +26,24 @@ class Model(nn.Module):
     """
 
     def __init__(self,
-                 name: str = "my_model",
-                 encoder: Encoder = None,
-                 decoder: Decoder = None,
-                 src_embed: Embeddings = None,
-                 trg_embed: Embeddings = None,
-                 src_vocab: Vocabulary = None,
-                 trg_vocab: Vocabulary = None):
+                 encoder: Encoder,
+                 decoder: Decoder,
+                 src_embed: Embeddings,
+                 trg_embed: Embeddings,
+                 src_vocab: Vocabulary,
+                 trg_vocab: Vocabulary) -> None:
         """
         Create a new encoder-decoder model
 
-        :param name:
-        :param encoder:
-        :param decoder:
-        :param src_embed:
-        :param trg_embed:
-        :param src_vocab:
-        :param trg_vocab:
+        :param encoder: encoder
+        :param decoder: decoder
+        :param src_embed: source embedding
+        :param trg_embed: target embedding
+        :param src_vocab: source vocabulary
+        :param trg_vocab: target vocabulary
         """
         super(Model, self).__init__()
 
-        self.name = name
         self.src_embed = src_embed
         self.trg_embed = trg_embed
         self.encoder = encoder
@@ -83,16 +54,18 @@ class Model(nn.Module):
         self.pad_index = self.trg_vocab.stoi[PAD_TOKEN]
         self.eos_index = self.trg_vocab.stoi[EOS_TOKEN]
 
-    def forward(self, src, trg_input, src_mask, src_lengths, src_mfcc):
+    #pylint: disable=arguments-differ
+    def forward(self, src: Tensor, trg_input: Tensor, src_mask: Tensor,
+                src_lengths: Tensor) -> (Tensor, Tensor, Tensor, Tensor):
         """
         Take in and process masked src and target sequences.
         Use the encoder hidden state to initialize the decoder
         The encoder outputs are used for attention
 
-        :param src:
-        :param trg_input:
-        :param src_mask:
-        :param src_lengths:
+        :param src: source input
+        :param trg_input: target input
+        :param src_mask: source mask
+        :param src_lengths: length of source inputs
         :return: decoder outputs
         """
         encoder_output, encoder_hidden = self.encode(src=src,
@@ -105,7 +78,8 @@ class Model(nn.Module):
                            src_mask=src_mask, trg_input=trg_input,
                            unrol_steps=unrol_steps)
 
-    def encode(self, src, src_length, src_mask, mfcc):
+    def encode(self, src: Tensor, src_length: Tensor, src_mask: Tensor, mfcc) \
+            -> (Tensor, Tensor):
         """
         Encodes the source sentence.
         TODO adapt to transformer
@@ -113,24 +87,25 @@ class Model(nn.Module):
         :param src:
         :param src_length:
         :param src_mask:
-        :return:
+        :return: encoder outputs (output, hidden_concat)
         """
         #print(mfcc.shape, "COMPARE TO ", self.src_embed(src).shape)
         return self.encoder(mfcc, src_length, src_mask)
 
-    def decode(self, encoder_output, encoder_hidden, src_mask, trg_input,
-               unrol_steps, decoder_hidden=None):
+    def decode(self, encoder_output: Tensor, encoder_hidden: Tensor,
+               src_mask: Tensor, trg_input: Tensor,
+               unrol_steps: int, decoder_hidden: Tensor = None) \
+            -> (Tensor, Tensor, Tensor, Tensor):
         """
         Decode, given an encoded source sentence.
-        # TODO adapt to transformer
 
-        :param encoder_output:
-        :param encoder_hidden:
-        :param src_mask:
-        :param trg_input:
-        :param unrol_steps:
-        :param decoder_hidden:
-        :return: decoder outputs
+        :param encoder_output: encoder states for attention computation
+        :param encoder_hidden: last encoder state for decoder initialization
+        :param src_mask: source mask, 1 at valid tokens
+        :param trg_input: target inputs
+        :param unrol_steps: number of steps to unrol the decoder for
+        :param decoder_hidden: decoder hidden state (optional)
+        :return: decoder outputs (outputs, hidden, att_probs, att_vectors)
         """
         return self.decoder(trg_embed=self.trg_embed(trg_input),
                             encoder_output=encoder_output,
@@ -139,14 +114,15 @@ class Model(nn.Module):
                             unrol_steps=unrol_steps,
                             hidden=decoder_hidden)
 
-    def get_loss_for_batch(self, batch, criterion):
+    def get_loss_for_batch(self, batch: Batch, criterion: nn.Module) -> Tensor:
         """
         Compute non-normalized loss and number of tokens for a batch
 
-        :param batch:
-        :param criterion:
-        :return:
+        :param batch: batch to compute loss for
+        :param criterion: loss criterion
+        :return: batch_loss: sum of losses over non-pad elements in the batch
         """
+        #pylint: disable=unused-variable
         out, hidden, att_probs, _ = self.forward(
             src=batch.src, trg_input=batch.trg_input,
             src_mask=batch.src_mask, src_lengths=batch.src_lengths, src_mfcc=batch.mfcc)
@@ -161,15 +137,17 @@ class Model(nn.Module):
         # return batch loss = sum over all elements in batch that are not pad
         return batch_loss
 
-    def run_batch(self, batch, max_output_length, beam_size, beam_alpha):
+    def run_batch(self, batch: Batch, max_output_length: int, beam_size: int,
+                  beam_alpha: float) -> (np.array, np.array):
         """
         Get outputs and attentions scores for a given batch
 
-        :param batch:
-        :param max_output_length:
-        :param beam_size:
-        :param beam_alpha:
-        :return:
+        :param batch: batch to generate hypotheses for
+        :param max_output_length: maximum length of hypotheses
+        :param beam_size: size of the beam for beam search, if 0 use greedy
+        :param beam_alpha: alpha value for beam search
+        :return: stacked_output: hypotheses for batch,
+            stacked_attention_scores: attention scores for batch
         """
         encoder_output, encoder_hidden = self.encode(
             batch.src, batch.src_lengths,
@@ -199,11 +177,11 @@ class Model(nn.Module):
 
         return stacked_output, stacked_attention_scores
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         String representation: a description of encoder, decoder and embeddings
 
-        :return:
+        :return: string representation
         """
         return "%s(\n" \
                "\tencoder=%r,\n" \
@@ -214,12 +192,12 @@ class Model(nn.Module):
                    str(self.decoder),
                    self.src_embed, self.trg_embed)
 
-    def log_parameters_list(self, logging_function):
+    def log_parameters_list(self, logging_function: Callable[[str], None]) \
+            -> None:
         """
         Write all parameters (name, shape) to the log.
 
-        :param logging_function:
-        :return:
+        :param logging_function: a logger's logging function
         """
         model_parameters = filter(lambda p: p.requires_grad, self.parameters())
         n_params = sum([np.prod(p.size()) for p in model_parameters])
@@ -227,3 +205,46 @@ class Model(nn.Module):
         for name, p in self.named_parameters():
             if p.requires_grad:
                 logging_function("%s : %s" % (name, list(p.size())))
+
+
+def build_model(cfg: dict = None,
+                src_vocab: Vocabulary = None,
+                trg_vocab: Vocabulary = None) -> Model:
+    """
+    Build and initialize the model according to the configuration.
+
+    :param cfg: dictionary configuration containing model specifications
+    :param src_vocab: source vocabulary
+    :param trg_vocab: target vocabulary
+    :return: built and initialized model
+    """
+    src_padding_idx = src_vocab.stoi[PAD_TOKEN]
+    trg_padding_idx = trg_vocab.stoi[PAD_TOKEN]
+
+    src_embed = Embeddings(
+        **cfg["encoder"]["embeddings"], vocab_size=len(src_vocab),
+        padding_idx=src_padding_idx)
+
+    if cfg.get("tied_embeddings", False) \
+        and src_vocab.itos == trg_vocab.itos:
+        # share embeddings for src and trg
+        trg_embed = src_embed
+    else:
+        trg_embed = Embeddings(
+            **cfg["decoder"]["embeddings"], vocab_size=len(trg_vocab),
+            padding_idx=trg_padding_idx)
+
+    encoder = RecurrentEncoder(**cfg["encoder"],
+                               emb_size=src_embed.embedding_dim)
+    decoder = RecurrentDecoder(**cfg["decoder"], encoder=encoder,
+                               vocab_size=len(trg_vocab),
+                               emb_size=trg_embed.embedding_dim)
+
+    model = Model(encoder=encoder, decoder=decoder,
+                  src_embed=src_embed, trg_embed=trg_embed,
+                  src_vocab=src_vocab, trg_vocab=trg_vocab)
+
+    # custom initialization of model parameters
+    initialize_model(model, cfg, src_padding_idx, trg_padding_idx)
+
+    return model

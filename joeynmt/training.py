@@ -19,10 +19,10 @@ import torch.nn as nn
 from joeynmt.model import build_model
 from joeynmt.speech_model import build_speech_model
 from joeynmt.batch import Batch
-from joeynmt.helpers import log_data_info, load_data, \
-    load_audio_data, load_config, log_cfg, store_attention_plots, \
-    make_data_iter, load_model_from_checkpoint
+from joeynmt.helpers import log_data_info, \
+    load_config, log_cfg, store_attention_plots, load_model_from_checkpoint
 from joeynmt.prediction import validate_on_data
+from joeynmt.data import load_data, load_audio_data, make_data_iter
 
 
 # pylint: disable=too-many-instance-attributes
@@ -509,8 +509,20 @@ def train(cfg_file):
     trainer.train_and_validate(train_data=train_data, valid_data=dev_data, config=cfg)
 
     if test_data is not None:
-        trainer.load_checkpoint("{}/{}.ckpt".format(
-            trainer.model_dir, trainer.best_ckpt_iteration))
+        checkpoint_path = "{}/{}.ckpt".format(
+                trainer.model_dir, trainer.best_ckpt_iteration)
+        try:
+            trainer.load_checkpoint(checkpoint_path)
+        except AssertionError:
+            trainer.logger.warning("Checkpoint %s does not exist. "
+                                   "Skipping testing.", checkpoint_path)
+            if trainer.best_ckpt_iteration == 0 \
+                and trainer.best_ckpt_score in [np.inf, -np.inf]:
+                trainer.logger.warning(
+                    "It seems like no checkpoint was written, "
+                    "since no improvement was obtained over the initial model.")
+            return
+
         # test model
         if "testing" in cfg.keys():
             beam_size = cfg["testing"].get("beam_size", 0)
