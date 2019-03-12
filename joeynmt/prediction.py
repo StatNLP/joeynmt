@@ -13,6 +13,7 @@ from joeynmt.helpers import bpe_postprocess, load_config, \
     get_latest_checkpoint, load_model_from_checkpoint, store_attention_plots
 from joeynmt.metrics import bleu, chrf, token_accuracy, sequence_accuracy
 from joeynmt.model import build_model, Model
+from joeynmt.speech_model import build_speech_model
 from joeynmt.batch import Batch
 from joeynmt.data import load_data, load_audio_data, make_data_iter
 
