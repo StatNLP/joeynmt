@@ -56,7 +56,7 @@ class Model(nn.Module):
 
     #pylint: disable=arguments-differ
     def forward(self, src: Tensor, trg_input: Tensor, src_mask: Tensor,
-                src_lengths: Tensor) -> (Tensor, Tensor, Tensor, Tensor):
+                src_lengths: Tensor, src_mfcc: Tensor) -> (Tensor, Tensor, Tensor, Tensor):
         """
         Take in and process masked src and target sequences.
         Use the encoder hidden state to initialize the decoder
@@ -78,7 +78,7 @@ class Model(nn.Module):
                            src_mask=src_mask, trg_input=trg_input,
                            unrol_steps=unrol_steps)
 
-    def encode(self, src: Tensor, src_length: Tensor, src_mask: Tensor, mfcc) \
+    def encode(self, src: Tensor, src_length: Tensor, src_mask: Tensor, mfcc: Tensor) \
             -> (Tensor, Tensor):
         """
         Encodes the source sentence.
@@ -207,7 +207,7 @@ class Model(nn.Module):
                 logging_function("%s : %s" % (name, list(p.size())))
 
 
-def build_model(cfg: dict = None,
+def build_speech_model(cfg: dict = None,
                 src_vocab: Vocabulary = None,
                 trg_vocab: Vocabulary = None) -> Model:
     """

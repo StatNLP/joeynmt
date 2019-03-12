@@ -5,6 +5,9 @@ Data module
 import sys
 import os
 import os.path
+import torchaudio as ta
+import librosa
+import torch
 
 from torchtext.datasets import TranslationDataset
 from torchtext import data
