@@ -362,7 +362,7 @@ def load_audio_data(cfg):
     trg_vocab_file = data_cfg.get(audio_lang + "_vocab", None)
     #trg_vocab_file = data_cfg.get(data_cfg["vocab"], None)
     trg_vocab = build_vocab(field="trg", min_freq=min_freq, max_size=max_size,
-                            data=train_data, vocab_file=trg_vocab_file)
+                            dataset=train_data, vocab_file=trg_vocab_file)
     src_vocab = trg_vocab 
     
     dev_data = AudioDataset(path=dev_path, text_ext="." + audio_lang,

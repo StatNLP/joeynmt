@@ -143,7 +143,7 @@ class RecurrentDecoder(Decoder):
         assert src_mask.shape[0] == prev_embed.shape[0]
         assert src_mask.shape[1] == 1
         assert src_mask.shape[2] == encoder_output.shape[1]
-        assert hidden.shape[0] == self.num_layers
+        assert hidden.shape[0] == self.num_layers #doesn't work for lstm
         assert hidden.shape[1] == prev_embed.shape[0]
         assert hidden.shape[2] == self.hidden_size
 
@@ -169,7 +169,9 @@ class RecurrentDecoder(Decoder):
         assert len(encoder_output.shape) == 3
         assert len(encoder_hidden.shape) == 2
         # for beam search, batch_size of encoder outputs is expanded beam times
-        assert not encoder_output.shape[0] % encoder_hidden.shape[0]
+        #print(encoder_output.shape[0], "OUTPUT SHAPE")
+        #print(encoder_hidden.shape[0], "HIDDEN SHAPE")
+        #assert not encoder_output.shape[0] % encoder_hidden.shape[0]
         assert encoder_hidden.shape[-1] == encoder_output.shape[-1]
         assert src_mask.shape[1] == 1
         assert src_mask.shape[0] == encoder_output.shape[0]
