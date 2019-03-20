@@ -8,24 +8,37 @@ import os.path
 import torchaudio as ta
 import librosa
 import torch
+from typing import Optional
 
 from torchtext.datasets import TranslationDataset
 from torchtext import data
-from torchtext.data import Dataset
+from torchtext.data import Dataset, Iterator, Field
 
 from joeynmt.constants import UNK_TOKEN, EOS_TOKEN, BOS_TOKEN, PAD_TOKEN
-from joeynmt.vocabulary import build_vocab
+from joeynmt.vocabulary import build_vocab, Vocabulary
 
 
-def load_data(cfg: dict):
+def load_data(data_cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
+                                  Vocabulary, Vocabulary):
     """
-    Load train, dev and test data as specified in configuration.
+    Load train, dev and optionally test data as specified in configuration.
+    Vocabularies are created from the training set with a limit of `voc_limit`
+    tokens and a minimum token frequency of `voc_min_freq`
+    (specified in the configuration dictionary).
 
-    :param cfg: configuration dictionary
+    The training data is filtered to include sentences up to `max_sent_length`
+    on source and target side.
+
+    :param data_cfg: configuration dictionary for data
+        ("data" part of configuation file)
     :return:
+        - train_data: training dataset
+        - dev_data: development dataset
+        - test_data: testdata set if given, otherwise None
+        - src_vocab: source vocabulary extracted from training data
+        - trg_vocab: target vocabulary extracted from training data
     """
     # load data from files
-    data_cfg = cfg["data"]
     src_lang = data_cfg["src"]
     trg_lang = data_cfg["trg"]
     train_path = data_cfg["train"]
@@ -35,11 +48,7 @@ def load_data(cfg: dict):
     lowercase = data_cfg["lowercase"]
     max_sent_length = data_cfg["max_sent_length"]
 
-    #pylint: disable=unnecessary-lambda
-    if level == "char":
-        tok_fun = lambda s: list(s)
-    else:  # bpe or word, pre-tokenized
-        tok_fun = lambda s: s.split()
+    tok_fun = lambda s: list(s) if level == "char" else s.split()
 
     src_field = data.Field(init_token=None, eos_token=EOS_TOKEN,
                            pad_token=PAD_TOKEN, tokenize=tok_fun,
@@ -84,21 +93,24 @@ def load_data(cfg: dict):
         else:
             # no target is given -> create dataset from src only
             test_data = MonoDataset(path=test_path, ext="." + src_lang,
-                                    field=(src_field))
+                                    field=src_field)
     src_field.vocab = src_vocab
     trg_field.vocab = trg_vocab
     return train_data, dev_data, test_data, src_vocab, trg_vocab
 
 
-def make_data_iter(dataset, batch_size, train=False, shuffle=False):
+def make_data_iter(dataset: Dataset, batch_size: int, train: bool = False,
+                   shuffle: bool = False) -> Iterator:
     """
     Returns a torchtext iterator for a torchtext dataset.
 
-    :param dataset:
-    :param batch_size:
-    :param train:
-    :param shuffle:
-    :return:
+    :param dataset: torchtext dataset containing src and optionally trg
+    :param batch_size: size of the batches the iterator prepares
+    :param train: whether it's training time, when turned off,
+        bucketing, sorting within batches and shuffling is disabled
+    :param shuffle: whether to shuffle the data before each epoch
+        (no effect if set to True for testing)
+    :return: torchtext iterator
     """
     if train:
         # optionally shuffle and sort during training
@@ -122,15 +134,14 @@ class MonoDataset(Dataset):
     def sort_key(ex):
         return len(ex.src)
 
-    def __init__(self, path: str, ext: str, field: str, **kwargs):
+    def __init__(self, path: str, ext: str, field: Field, **kwargs) -> None:
         """
         Create a monolingual dataset (=only sources) given path and field.
 
         :param path: Prefix of path to the data file
         :param ext: Containing the extension to path for this language.
         :param field: Containing the fields that will be used for data.
-        :param kwargs: Passed to the constructor of
-                data.Dataset.
+        :param kwargs: Passed to the constructor of data.Dataset.
         """
 
         fields = [('src', field)]
@@ -148,12 +159,24 @@ class MonoDataset(Dataset):
         super(MonoDataset, self).__init__(examples, fields, **kwargs)
 
 
-def load_audio_data(cfg: dict):
+def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
+                    Vocabulary, Vocabulary):
     """
-    Load train, dev and test audio data as specified in configuration.
-
-    :param cfg: configuration dictionary
+    Load train, dev and optionally test data as specified in configuration.
+    Vocabularies are created from the training set with a limit of `voc_limit`
+    tokens and a minimum token frequency of `voc_min_freq`
+    (specified in the configuration dictionary).
+    
+    The training data is filtered to include sentences up to `max_sent_length`
+    on text side and audios up to `max_audio_length`.
+    
+    :param cfg: configuration dictionary for data
     :return:
+        - train_data: training dataset
+        - dev_data: development dataset
+        - test_data: testdata set if given, otherwise None
+        - src_vocab: copy of trg_vocab
+        - trg_vocab: target vocabulary extracted from training data
     """
     # load data from files
     data_cfg = cfg["data"]
@@ -180,7 +203,7 @@ def load_audio_data(cfg: dict):
         tok_fun = lambda s: s.split()
         char = False
 
-    trg_field = data.Field(init_token=None, eos_token=EOS_TOKEN,
+    trg_field = data.Field(init_token=BOS_TOKEN, eos_token=EOS_TOKEN,
                         pad_token=PAD_TOKEN, tokenize=tok_fun,
                         batch_first=True, lower=lowercase,
                         unk_token=UNK_TOKEN,
@@ -202,7 +225,6 @@ def load_audio_data(cfg: dict):
     max_size = data_cfg.get("voc_limit", sys.maxsize)
     min_freq = data_cfg.get("voc_min_freq", 1)
     trg_vocab_file = data_cfg.get(audio_lang + "_vocab", None)
-    #trg_vocab_file = data_cfg.get(data_cfg["vocab"], None)
     trg_vocab = build_vocab(field="trg", min_freq=min_freq, max_size=max_size,
                             dataset=train_data, vocab_file=trg_vocab_file)
     src_vocab = trg_vocab
@@ -228,15 +250,17 @@ def load_audio_data(cfg: dict):
 class AudioDataset(TranslationDataset):
     """Defines a dataset for speech recognition/translation."""
 
-    def __init__(self, path, text_ext, audio_ext, field, num, char_level, train, **kwargs):
+    def __init__(self, path: str, text_ext: str, audio_ext: str, field: Field, num: int, char_level: bool, train: bool, **kwargs) -> None:
         """Create an AudioDataset given path and fields.
 
-        Arguments:
-            path: Prefix of path to the data file
-            ext: Containing the extension to path for the wanted language.
-            fields: Containing the fields that will be used for data
-            Remaining keyword arguments: Passed to the constructor of
-                data.Dataset.
+            :param path: Prefix of path to the data files
+            :param text_ext: Containing the extension to path for text file
+            :param audio_ext: Containing the extension to path for audio file
+            :param field: Containing the field that will be used for text data
+            :param num: Containing the number of mfccs to extract (= dimension of source embeddings)
+            :param char_level: Containing the indicator for char level
+            :param train: Containing the indicator for training set 
+            :param kwargs: Passed to the constructor of data.Dataset.
         """
         audio_field = data.RawField()
         fields = [('trg', field), ('audio', audio_field), ('audio2', audio_field), ('mfcc', audio_field), ('src', field)]
@@ -309,15 +333,15 @@ class MonoAudioDataset(TranslationDataset):
     def sort_key(ex):
         return len(ex.src)
 
-    def __init__(self, path: str, audio_ext: str, **kwargs):
+    def __init__(self, path: str, audio_ext: str, **kwargs) -> None:
         """
-        Create an AudioDataset given path and field.
+        Create a MonoAudioDataset (=only sources) given path.
 
-        Arguments:
-            path: Prefix of path to the data file
-            audio_ext: Containing the extension to path for the audio files.
-            Remaining keyword arguments: Passed to the constructor of
-                data.Dataset.
+            :param path: Prefix of path to the data file
+            :param audio_ext: Containing the extension to path for audio file
+            :param field: Containing the field that will be used for text data.
+            :param kwargs: Passed to the constructor of data.Dataset.
+
         """
         audio_field = data.RawField()
         fields = [('src', audio_field)]
