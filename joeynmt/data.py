@@ -290,9 +290,9 @@ class AudioDataset(TranslationDataset):
                     featureS = torch.Tensor(featuresT)
                     #print(featureS.size, " MFCC_T", featureS.shape, " SHAPE", featureS.shape[0], " DIMENSION")
                     if char_level :
-                        audio_dummy = "a" * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
+                        audio_dummy = "a" * (featuresT.shape[0] - 2) #generate a line with <unk> of given size
                     else :
-                        audio_dummy = "a " * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
+                        audio_dummy = "a " * (featuresT.shape[0] - 2) #generate a line with <unk> of given size
                     check = featuresT.shape[0] // (len(text_line) + 1)
                     if train :
                         if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 and check < 10 :
