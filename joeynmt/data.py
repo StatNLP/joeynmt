@@ -5,7 +5,7 @@ Data module
 import sys
 import os
 import os.path
-import torchaudio as ta
+#import torchaudio as ta
 import librosa
 import torch
 from typing import Optional
@@ -194,6 +194,8 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
     max_sent_length = data_cfg["max_sent_length"]
     max_audio_length = data_cfg["max_audio_length"]
     mfcc_number = cfg["model"]["encoder"]["embeddings"]["embedding_dim"]
+    assert mfcc_number <= 80,\
+    "The number of used MFCCs could not be higher than the number of Mel bands. Change the encoder's embedding_dim."
 
     #pylint: disable=unnecessary-lambda
     if level == "char":
@@ -242,7 +244,8 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
                 char_level=char, train=False)
         else:
             # no target is given -> create dataset from src only
-            test_data = MonoAudioDataset(path=test_path, audio_ext=".txt")
+            test_data = MonoAudioDataset(path=test_path, audio_ext=".txt", 
+                            field=trg_field, num=mfcc_number, char_level=char)
     trg_field.vocab = trg_vocab
     return train_data, dev_data, test_data, src_vocab, trg_vocab
 
@@ -263,7 +266,8 @@ class AudioDataset(TranslationDataset):
             :param kwargs: Passed to the constructor of data.Dataset.
         """
         audio_field = data.RawField()
-        fields = [('trg', field), ('audio', audio_field), ('audio2', audio_field), ('mfcc', audio_field), ('src', field)]
+        #fields = [('trg', field), ('audio', audio_field), ('audio2', audio_field), ('mfcc', audio_field), ('src', field)]
+        fields = [('trg', field), ('mfcc', audio_field), ('src', field)]
 
         text_path = os.path.expanduser(path + text_ext)
         audio_path = os.path.expanduser(path + audio_ext)
@@ -282,9 +286,14 @@ class AudioDataset(TranslationDataset):
                 for text_line, audio_line in zip(text_file, audio_file):
                     text_line = text_line.strip()
                     audio_line = audio_line.strip()
-                    sound, sample_rate = ta.load(audio_line)
+                    # sound, sample_rate = ta.load(audio_line)
                     y, sr = librosa.load(audio_line, sr=None)
-                    features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num)
+                    # print("Sampled the audio with sr=",sr)
+                    # features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num)
+                    # overwrite default values for the window width of 25 ms and stride of 10 ms (for sr = 16kHz)
+                    # (n_fft : length of the FFT window, hop_length : number of samples between successive frames)
+                    # default values: n_fft=2048, hop_length=512, n_mels=128
+                    features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80)
                     featuresT = features.T
                     #print(features[:, 0]) # print mfccs for the first window
                     featureS = torch.Tensor(featuresT)
@@ -295,23 +304,20 @@ class AudioDataset(TranslationDataset):
                         audio_dummy = "a " * (featuresT.shape[0] - 2) #generate a line with <unk> of given size
                     check = featuresT.shape[0] // (len(text_line) + 1)
                     if train :
-                        if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 and check < 10 :
-                            examples.append(data.Example.fromlist([text_line, sound, y, featureS, audio_dummy], fields))
+                        if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 and check < 20 :
+                            examples.append(data.Example.fromlist([text_line, featureS, audio_dummy], fields))
+                            #length_info.write('Target={0}, MFCC={1}, dummy={2} \n'.format(text_line, featureS, audio_dummy))
+                            #examples.append(data.Example.fromlist([text_line, sound, y, featureS, audio_dummy], fields))
                             #length_info.write('COMPARE AUDIO LENGTH {0} TO TEXT LENGTH {1} \n'.format(featuresT.shape[0], len(text_line) + 1))
-                            if check > maxi:
-                                maxi = check
-                            if check < mini:
-                                mini = check
-                            summa += check
-                            count += 1
                     else:
-                        examples.append(data.Example.fromlist([text_line, sound, y, featureS, audio_dummy], fields))
-                        if check > maxi:
-                            maxi = check
-                        if check < mini:
-                            mini = check
-                        summa += check
-                        count += 1
+                        if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 :
+                            examples.append(data.Example.fromlist([text_line, featureS, audio_dummy], fields))
+                    if check > maxi:
+                        maxi = check
+                    if check < mini:
+                        mini = check
+                    summa += check
+                    count += 1
         length_info.write('mini={0}, maxi={1}, mean={2} \n'.format(mini, maxi, summa/count))
         length_info.close()
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
@@ -333,30 +339,35 @@ class MonoAudioDataset(TranslationDataset):
     def sort_key(ex):
         return len(ex.src)
 
-    def __init__(self, path: str, audio_ext: str, **kwargs) -> None:
+    def __init__(self, path: str, audio_ext: str, field: Field, num: int, char_level: bool, **kwargs) -> None:
         """
         Create a MonoAudioDataset (=only sources) given path.
 
             :param path: Prefix of path to the data file
             :param audio_ext: Containing the extension to path for audio file
-            :param field: Containing the field that will be used for text data.
+            :param field: Containing the field for dummy audio data
+            :param num: Containing the number of mfccs to extract (= dimension of source embeddings)
+            :param char_level: Containing the indicator for char level
             :param kwargs: Passed to the constructor of data.Dataset.
-
         """
         audio_field = data.RawField()
-        fields = [('src', audio_field)]
-
-        #TODO fix / extend fields here
-
+        fields = [('mfcc', audio_field), ('src', field)]
         audio_path = os.path.expanduser(path + audio_ext)
         examples = []
 
         with open(audio_path) as audio_file:
             for audio_line in audio_file:
                 audio_line = audio_line.strip()
-                sound, sample_rate = ta.load(audio_line)
+                y, sr = librosa.load(audio_line, sr=None)
+                features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80)
+                featuresT = features.T
+                featureS = torch.Tensor(featuresT)
+                if char_level :
+                    audio_dummy = "a" * (featuresT.shape[0] - 2) #generate a line with <unk> of given size
+                else :
+                    audio_dummy = "a " * (featuresT.shape[0] - 2) #generate a line with <unk> of given size
                 if audio_line != '' and os.path.getsize(audio_line) > 44 :
-                    examples.append(data.Example.fromlist([sound], fields))
+                    examples.append(data.Example.fromlist([featureS, audio_dummy], fields))
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
 
     def __len__(self):

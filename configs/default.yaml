@@ -53,7 +53,7 @@ model:  # specify your model architecture here
     encoder:
         rnn_type: "gru" # type of recurrent unit to use, either "gru" or "lstm", default: "lstm"
         embeddings:
-            embedding_dim: 16 # size of embeddings
+            embedding_dim: 16 # size of embeddings, should not be higher than 80
             scale: False  # scale the embeddings by sqrt of their size, default: False
             freeze: False  # if True, embeddings are not updated during training
         hidden_size: 30 # size of RNN
