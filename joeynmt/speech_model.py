@@ -124,6 +124,8 @@ class Model(nn.Module):
             a scalar loss for the complete batch
         :return: batch_loss: sum of losses over non-pad elements in the batch
         """
+        #print("Check the mapping inside of batch here: ", batch.trg_input[3], batch.mfcc[3])
+
         # pylint: disable=unused-variable
         out, hidden, att_probs, _ = self.forward(
             src=batch.src, trg_input=batch.trg_input,
