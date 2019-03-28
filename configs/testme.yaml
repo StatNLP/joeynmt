@@ -19,6 +19,7 @@ data: # specify your data here
     trg_voc_limit: 102  # trg vocabulary only includes this many most frequent tokens, default: unlimited
     #src_vocab: "my_model/src_vocab.txt"  # if specified, load a vocabulary from this file
     #trg_vocab: "my_model/trg_vocab.txt"  # one token per line, line number is index
+    input_length_ratio: 10 # a possible training set's filter due to the length difference
 
 testing:  # specify which inference algorithm to use for testing (for validation it's always greedy decoding)
     beam_size: 5  # size of the beam for beam search
@@ -49,6 +50,7 @@ training: # specify training details here
     use_cuda: False # use CUDA for acceleration on GPU, required. Set to False when working on CPU.
     #max_output_length: None  # maximum output length for decoding, default: None. If set to None, allow sentences of max 1.5*src length
     print_valid_sents: 3  # print this many validation sentences during each validation run, default: 3
+    keep_last_ckpts: 3 # keep this many of the latest checkpoints, if -1: all of them, default: 5
 
 model:  # specify your model architecture here
     tied_embeddings: False  # tie src and trg embeddings, only applicable if vocabularies are the same, default: False

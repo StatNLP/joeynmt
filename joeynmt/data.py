@@ -200,6 +200,7 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
     mfcc_number = cfg["model"]["encoder"]["embeddings"]["embedding_dim"]
     assert mfcc_number <= 80,\
     "The number of used MFCCs could not be higher than the number of Mel bands. Change the encoder's embedding_dim."
+    check_ratio = data_cfg.get("input_length_ratio", sys.maxsize)
 
     #pylint: disable=unnecessary-lambda
     if level == "char":
@@ -224,10 +225,9 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
     train_data = AudioDataset(path=train_path, text_ext="." + audio_lang,
                               audio_ext=".txt", fields=(src_field, trg_field), 
                               num=mfcc_number, char_level=char, train=True, 
-                              filter_pred = lambda x: len(vars(x)['src'])
-                              <= max_audio_length
-                              and len(vars(x)['trg'])
-                              <= max_sent_length)
+                              check=check_ratio, filter_pred = lambda x: 
+                              len(vars(x)['src']) <= max_audio_length
+                              and len(vars(x)['trg']) <= max_sent_length)
 
     src_max_size = data_cfg.get("src_voc_limit", sys.maxsize)
     src_min_freq = data_cfg.get("src_voc_min_freq", 1)
@@ -240,16 +240,15 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
     src_vocab = trg_vocab
 
     dev_data = AudioDataset(path=dev_path, text_ext="." + audio_lang, audio_ext=".txt", 
-                                  fields=(src_field, trg_field), num=mfcc_number,
-                                  char_level=char, train=False)
+                            fields=(src_field, trg_field), num=mfcc_number,
+                            char_level=char, train=False, check=check_ratio)
     test_data = None
     if test_path is not None:
         # check if target exists
         if os.path.isfile(test_path + "." + audio_lang):
-            test_data = AudioDataset(
-                path=test_path, text_ext="." + audio_lang,
-                audio_ext=".txt", fields=(src_field, trg_field),
-                num=mfcc_number, char_level=char, train=False)
+            test_data = AudioDataset(path=test_path, text_ext="." + audio_lang, 
+                            audio_ext=".txt", fields=(src_field, trg_field), num=mfcc_number, 
+                            char_level=char, train=False, check=check_ratio)
         else:
             # no target is given -> create dataset from src only
             test_data = MonoAudioDataset(path=test_path, audio_ext=".txt", 
@@ -264,16 +263,17 @@ class AudioDataset(TranslationDataset):
     """Defines a dataset for speech recognition/translation."""
 
     def __init__(self, path: str, text_ext: str, audio_ext: str, fields, 
-                 num: int, char_level: bool, train: bool, **kwargs) -> None:
+                 num: int, char_level: bool, train: bool, check: int, **kwargs) -> None:
         """Create an AudioDataset given path and fields.
 
             :param path: Prefix of path to the data files
             :param text_ext: Containing the extension to path for text file
             :param audio_ext: Containing the extension to path for audio file
-            :param field: Containing the field that will be used for text data
+            :param fields: Containing the fields that will be used for text data
             :param num: Containing the number of mfccs to extract (= dimension of source embeddings)
             :param char_level: Containing the indicator for char level
             :param train: Containing the indicator for training set 
+            :param check: Containing the length ratio as a filter for training set
             :param kwargs: Passed to the constructor of data.Dataset.
         """
         audio_field = data.RawField()
@@ -282,12 +282,13 @@ class AudioDataset(TranslationDataset):
         text_path = os.path.expanduser(path + text_ext)
         audio_path = os.path.expanduser(path + audio_ext)
         examples = []
-        maxi = 1
-        mini = 10
-        summa = 0
-        count = 0
-        log_path = os.path.expanduser(path + '_length_statistics')
-        length_info = open(log_path, 'a')
+        if train :
+            maxi = 1
+            mini = 10
+            summa = 0
+            count = 0
+            log_path = os.path.expanduser(path + '_length_statistics')
+            length_info = open(log_path, 'a')
 
         if len(open(text_path).read().splitlines()) != len(open(audio_path).read().splitlines()):
             raise IndexError('The size of the text and audio dataset differs.')
@@ -307,21 +308,22 @@ class AudioDataset(TranslationDataset):
                         audio_dummy = "a" * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
                     else :
                         audio_dummy = "a " * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
-                    check = featuresT.shape[0] / len(text_line)
                     if train :
-                        if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 : # and check < 20 :
+                        length_ratio = featuresT.shape[0] // (len(text_line) + 1)
+                        if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44  and length_ratio < check :
                             examples.append(data.Example.fromlist([text_line, featureS, audio_dummy], all_fields))
+                        if length_ratio > maxi:
+                            maxi = length_ratio
+                        if length_ratio < mini:
+                            mini = length_ratio
+                        summa += length_ratio
+                        count += 1
                     else:
                         if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 :
                             examples.append(data.Example.fromlist([text_line, featureS, audio_dummy], all_fields))
-                    if check > maxi:
-                        maxi = check
-                    if check < mini:
-                        mini = check
-                    summa += check
-                    count += 1
-        length_info.write('mini={0}, maxi={1}, mean={2} \n'.format(mini, maxi, summa/count))
-        length_info.close()
+        if train :
+            length_info.write('mini={0}, maxi={1}, mean={2}, checked by {3} \n'.format(mini, maxi, summa/count, check))
+            length_info.close()
         super(TranslationDataset, self).__init__(examples, all_fields, **kwargs)
 
     def __len__(self):
