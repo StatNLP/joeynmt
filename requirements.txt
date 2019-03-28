@@ -7,3 +7,4 @@ pyyaml
 subword-nmt
 librosa
 pylint
+editdistance

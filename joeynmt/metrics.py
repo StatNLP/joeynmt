@@ -4,6 +4,35 @@ This module holds various MT evaluation metrics.
 """
 
 import sacrebleu
+import editdistance
+
+
+def wer(hypotheses, references): 
+    """
+    Normalized edit distance from editdistance (word level)
+
+    :param hypotheses: list of hypotheses (strings)
+    :param references: list of references (strings)
+    :return:
+    """
+    wer = []
+    for hyp, ref in zip(hypotheses, references):
+        wer.append(editdistance.eval(hyp.split(' '), ref.split(' '))/len(ref.split(' ')))
+    return sum(wer)/len(wer)
+
+
+def cer(hypotheses, references):
+    """
+    Normalized edit distance from editdistance (character level)
+
+    :param hypotheses: list of hypotheses (strings)
+    :param references: list of references (strings)
+    :return:
+    """
+    cer = []
+    for hyp, ref in zip(hypotheses, references):
+        cer.append(editdistance.eval(hyp, ref)/len(ref))
+    return sum(cer)/len(cer)    
 
 
 def chrf(hypotheses, references):
