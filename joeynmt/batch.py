@@ -37,16 +37,12 @@ class Batch:
         
         if hasattr(torch_batch, "mfcc"):
             self.mfcc = torch_batch.mfcc
-            #for x in self.mfcc:
-                #print(x.shape[0])
             max_tensor = max(self.mfcc, key=lambda x: x.shape[0])
             max_dim = max_tensor.shape[0]
             padded_mfcc = []
             for x in self.mfcc: 
                 m = nn.ZeroPad2d((0, 0, 0, max_dim-x.shape[0]))
                 padded_mfcc.append(m(x))
-            #for y in padded_mfcc:
-                #print(y.shape[0])
             self.mfcc = torch.stack(padded_mfcc)
 
         if hasattr(torch_batch, "trg"):
@@ -59,8 +55,6 @@ class Batch:
             # we exclude the padded areas from the loss computation
             self.trg_mask = (self.trg != pad_index)
             self.ntokens = (self.trg != pad_index).data.sum().item()
-        #print(self.trg_input.size(1), "   HERE")
-        #print(trg_lengths)
 
         if use_cuda:
             self._make_cuda()

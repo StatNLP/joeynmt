@@ -23,7 +23,7 @@ from joeynmt.batch import Batch
 from joeynmt.helpers import log_data_info, load_config, log_cfg, \
     store_attention_plots, load_checkpoint, make_model_dir, \
     make_logger, set_seed
-from joeynmt.model import Model
+from joeynmt.speech_model import Model
 from joeynmt.prediction import validate_on_data
 from joeynmt.data import load_data, load_audio_data, make_data_iter
 from joeynmt.builders import build_optimizer, build_scheduler, \
@@ -476,8 +476,6 @@ def train(cfg_file: str) -> None:
     log_data_info(train_data=train_data, valid_data=dev_data,
                   test_data=test_data, src_vocab=src_vocab, trg_vocab=trg_vocab,
                   logging_function=trainer.logger.info)
-    #model.log_parameters_list(logging_function=trainer.logger.info)
-    #logging.info(model)
 
     # store the vocabs
     src_vocab_file = "{}/src_vocab.txt".format(cfg["training"]["model_dir"])

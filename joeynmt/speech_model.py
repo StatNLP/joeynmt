@@ -90,7 +90,6 @@ class Model(nn.Module):
         :param src_mfcc: mfcc vectors of input audios
         :return: encoder outputs (output, hidden_concat)
         """
-        #print(mfcc.shape, "COMPARE TO ", self.src_embed(src).shape)
         return self.encoder(mfcc, src_length, src_mask)
 
     def decode(self, encoder_output: Tensor, encoder_hidden: Tensor,
@@ -124,8 +123,6 @@ class Model(nn.Module):
             a scalar loss for the complete batch
         :return: batch_loss: sum of losses over non-pad elements in the batch
         """
-        #print("Check the mapping inside of batch here: ", batch.trg_input[3], batch.mfcc[3])
-
         # pylint: disable=unused-variable
         out, hidden, att_probs, _ = self.forward(
             src=batch.src, trg_input=batch.trg_input,
