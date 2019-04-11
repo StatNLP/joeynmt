@@ -134,6 +134,9 @@ class Model(nn.Module):
             input=log_probs.contiguous().view(-1, log_probs.size(-1)),
             target=batch.trg.contiguous().view(-1))
         # return batch loss = sum over all elements in batch that are not pad
+        #print("SRC:", batch.src)
+        #print("TRG:", batch.trg)
+        #print("TRG INPUT:", batch.trg_input)
         return batch_loss
 
     def run_batch(self, batch: Batch, max_output_length: int, beam_size: int,

@@ -17,7 +17,11 @@ def wer(hypotheses, references):
     """
     wer = []
     for hyp, ref in zip(hypotheses, references):
-        wer.append(editdistance.eval(hyp.split(' '), ref.split(' '))/len(ref.split(' ')))
+        wer.append(editdistance.eval(hyp.split(), ref.split())/len(ref.split()))
+        print("H:", hyp, "SPLIT:", hyp.split(), "LEN:", len(hyp.split()))
+        print("R:", ref, "SPLIT:", ref.split(), "LEN:", len(ref.split()))
+        print(editdistance.eval(hyp.split(), ref.split())/len(ref.split()))
+    print("wer:", sum(wer), "devided by", len(wer))
     return sum(wer)/len(wer)
 
 
@@ -31,7 +35,11 @@ def cer(hypotheses, references):
     """
     cer = []
     for hyp, ref in zip(hypotheses, references):
-        cer.append(editdistance.eval(hyp, ref)/len(ref))
+        cer.append(editdistance.eval(' '.join(hyp.split()), ref)/len(ref))
+        print("H:", hyp, "SPLIT:", ' '.join(hyp.split()), "LEN:", len(hyp), " & ", len(' '.join(hyp.split())))
+        print("R:", ref, "LEN:", len(ref))
+        print(editdistance.eval(' '.join(hyp.split()), ref)/len(ref))
+    print("cer:", sum(cer), "devided by", len(cer))
     return sum(cer)/len(cer)    
 
 

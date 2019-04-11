@@ -223,7 +223,7 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
                            include_lengths=True)
 
     train_data = AudioDataset(path=train_path, text_ext="." + audio_lang,
-                              audio_ext=".txt", fields=(src_field, trg_field), 
+                              audio_ext=".txt", sfield=src_field, tfield=trg_field, 
                               num=mfcc_number, char_level=char, train=True, 
                               check=check_ratio, filter_pred = lambda x: 
                               len(vars(x)['src']) <= max_audio_length
@@ -235,19 +235,21 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
     trg_min_freq = data_cfg.get("trg_voc_min_freq", 1)
 
     trg_vocab_file = data_cfg.get(audio_lang + "_vocab", None)
+    src_vocab_file = None
     trg_vocab = build_vocab(field="trg", min_freq=trg_min_freq, max_size=trg_max_size,
                             dataset=train_data, vocab_file=trg_vocab_file)
-    src_vocab = trg_vocab
+    src_vocab = build_vocab(field="src", min_freq=src_min_freq, max_size=src_max_size,
+                            dataset=train_data, vocab_file=src_vocab_file)
 
     dev_data = AudioDataset(path=dev_path, text_ext="." + audio_lang, audio_ext=".txt", 
-                            fields=(src_field, trg_field), num=mfcc_number,
+                            sfield=src_field, tfield=trg_field, num=mfcc_number,
                             char_level=char, train=False, check=check_ratio)
     test_data = None
     if test_path is not None:
         # check if target exists
         if os.path.isfile(test_path + "." + audio_lang):
             test_data = AudioDataset(path=test_path, text_ext="." + audio_lang, 
-                            audio_ext=".txt", fields=(src_field, trg_field), num=mfcc_number, 
+                            audio_ext=".txt", sfield=src_field, tfield=trg_field, num=mfcc_number, 
                             char_level=char, train=False, check=check_ratio)
         else:
             # no target is given -> create dataset from src only
@@ -262,7 +264,7 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
 class AudioDataset(TranslationDataset):
     """Defines a dataset for speech recognition/translation."""
 
-    def __init__(self, path: str, text_ext: str, audio_ext: str, fields, 
+    def __init__(self, path: str, text_ext: str, audio_ext: str, sfield: Field, tfield: Field, 
                  num: int, char_level: bool, train: bool, check: int, **kwargs) -> None:
         """Create an AudioDataset given path and fields.
 
@@ -277,7 +279,7 @@ class AudioDataset(TranslationDataset):
             :param kwargs: Passed to the constructor of data.Dataset.
         """
         audio_field = data.RawField()
-        all_fields = [('trg', fields[1]), ('mfcc', audio_field), ('src', fields[0])]
+        all_fields = [('trg', tfield), ('mfcc', audio_field), ('src', sfield)]
 
         text_path = os.path.expanduser(path + text_ext)
         audio_path = os.path.expanduser(path + audio_ext)
