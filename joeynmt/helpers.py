@@ -6,6 +6,7 @@ import copy
 import glob
 import os
 import os.path
+import errno
 import shutil
 import random
 import logging
@@ -19,8 +20,14 @@ from torch import nn, Tensor
 
 from torchtext.data import Dataset
 
+from tensorboardX import SummaryWriter
+
 from joeynmt.vocabulary import Vocabulary
 from joeynmt.plotting import plot_heatmap
+
+
+class ConfigurationError(Exception):
+    """ Custom exception for misspecifications of configuration """
 
 
 def make_model_dir(model_dir: str, overwrite=False) -> str:
@@ -172,7 +179,9 @@ def bpe_postprocess(string) -> str:
 
 def store_attention_plots(attentions: np.array, targets: List[List[str]],
                           sources: List[List[str]],
-                          output_prefix: str, indices: List[int]) -> None:
+                          output_prefix: str, indices: List[int],
+                          tb_writer: Optional[SummaryWriter] = None,
+                          steps: int = 0) -> None:
     """
     Saves attention plots.
 
@@ -181,6 +190,9 @@ def store_attention_plots(attentions: np.array, targets: List[List[str]],
     :param sources: list of tokenized sources
     :param output_prefix: prefix for attention plots
     :param indices: indices selected for plotting
+    :param tb_writer: tensorboardX writer (optional)
+    :param steps: current training steps, needed for tb_writer
+    :param dpi: resolution for images
     """
     for i in indices:
         plot_file = "{}.{}.pdf".format(output_prefix, i)
@@ -188,8 +200,15 @@ def store_attention_plots(attentions: np.array, targets: List[List[str]],
         trg = targets[i]
         attention_scores = attentions[i].T
         try:
-            plot_heatmap(scores=attention_scores, column_labels=trg,
-                         row_labels=src, output_path=plot_file)
+            fig = plot_heatmap(scores=attention_scores, column_labels=trg,
+                               row_labels=src, output_path=plot_file,
+                               dpi=100)
+            if tb_writer is not None:
+                # lower resolution for tensorboardX
+                fig = plot_heatmap(scores=attention_scores, column_labels=trg,
+                                   row_labels=src, output_path=None, dpi=50)
+                tb_writer.add_figure("attention/{}.".format(i), fig,
+                                     global_step=steps)
         # pylint: disable=bare-except
         except:
             print("Couldn't plot example {}: src len {}, trg len {}, "
@@ -267,3 +286,14 @@ def freeze_params(module: nn.Module) -> None:
     """
     for _, p in module.named_parameters():
         p.requires_grad = False
+
+
+def symlink_update(target, link_name):
+    try:
+        os.symlink(target, link_name)
+    except FileExistsError as e:
+        if e.errno == errno.EEXIST:
+            os.remove(link_name)
+            os.symlink(target, link_name)
+        else:
+            raise e

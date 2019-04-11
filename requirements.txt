@@ -8,3 +8,4 @@ subword-nmt
 librosa
 pylint
 editdistance
+tensorboardX

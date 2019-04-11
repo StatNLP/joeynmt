@@ -44,15 +44,6 @@ In order to keep the code clean and readable, we make use of:
 - Unittests: Every module has unit tests, defined in `test/unit/`.
 Travis CI runs the tests and pylint on every push to ensure the repository stays clean.
 
-
-## Teaching
-We will create dedicated material for teaching with Joey NMT. This will include:
-- An overview and explanation of the code architecture.
-- A tutorial how to train and test a baseline model.
-- A walk-through example of how to implement a modification of a baseline model.
-
-[Work in progress!]
-
 ## Installation
 Joey NMT is built on [PyTorch](https://pytorch.org/) v.0.4.1 and [torchtext](https://github.com/pytorch/text) for Python >= 3.6.
 
@@ -69,13 +60,33 @@ Joey NMT is built on [PyTorch](https://pytorch.org/) v.0.4.1 and [torchtext](htt
 `python3 -m unittest`
 
 ## Usage
-Models are specified in configuration files, in simple [YAML](http://yaml.org/) format. You can find examples in the `configs` directory.
+
+For details, follow the tutorial in [the docs](https://joeynmt.readthedocs.io).
+
+### Data Preparation
+
+#### Parallel Data
+For training a translation model, you need parallel data, i.e. a collection of source sentences and reference translations that are aligned sentence-by-sentence and stored in two files, 
+such that each line in the reference file is the translation of the same line in the source file.
+
+#### Pre-processing
+Before training a model on it, parallel data is most commonly filtered by length ratio, tokenized and true- or lowercased.
+
+The Moses toolkit provides a set of useful [scripts](https://github.com/moses-smt/mosesdecoder/tree/master/scripts) for this purpose.
+
+In addition, you might want to build the NMT model not on the basis of words, but rather sub-words or characters (the `level` in JoeyNMT configurations).
+Currently, JoeyNMT supports the byte-pair-encodings (BPE) format by [subword-nmt](https://github.com/rsennrich/subword-nmt).
+
+### Configuration
+Experiments are specified in configuration files, in simple [YAML](http://yaml.org/) format. You can find examples in the `configs` directory.
 `default.yaml` contains a detailed explanation of configuration options.
 
-## Documentation
-Read [the docs](https://joeynmt.readthedocs.io).
+Most importantly, the configuration contains the description of the model architecture (e.g. number of hidden units in the encoder RNN), 
+paths to the training, development and test data, and the training hyperparameters (learning rate, validation frequency etc.).
 
 ### Training
+
+#### Start
 For training, run 
 
 `python3 -m joeynmt train configs/default.yaml`. 
@@ -84,33 +95,62 @@ This will train a model on the training data specified in the config (here: `def
 validate on validation data, 
 and store model parameters, vocabularies, validation outputs and a small number of attention plots in the `model_dir` (also specified in config).
 
-The `validations.txt` file in the model directory reports the validation results at every validation point. 
-Models are saved whenever a new best validation score is reached, in `batch_no.ckpt`, where `batch_no` is the number of batches the model has been trained on so far.
-
-Run `python3 scripts/plot_validation.py model_dir --plot_values bleu PPL --output_path my_plot.pdf` to plot curves of validation BLEU and PPL.  
-
-For training on a GPU, set `use_cuda` in the config file to `True`.
-
 Note that pre-processing like tokenization or BPE-ing is not included in training, but has to be done manually before.
 
 Tip: Be careful not to overwrite models, set `overwrite: False` in the model configuration.
 
+#### Validations
+The `validations.txt` file in the model directory reports the validation results at every validation point. 
+Models are saved whenever a new best validation score is reached, in `batch_no.ckpt`, where `batch_no` is the number of batches the model has been trained on so far.
+`best.ckpt` links to the checkpoint that has so far achieved the best validation score.
 
-### Testing
-For testing, run 
+
+#### Visualization
+JoeyNMT uses [TensorboardX](https://github.com/lanpa/tensorboardX) to visualize training and validation curves and attention matrices during training.
+Launch [Tensorboard](https://github.com/tensorflow/tensorboard) with `tensorboard --logdir model_dir/tensorboard` (or `python -m tensorboard.main ...`) and then open the url (default: `localhost:6006`) with a browser. 
+
+For a stand-alone plot, run `python3 scripts/plot_validation.py model_dir --plot_values bleu PPL --output_path my_plot.pdf` to plot curves of validation BLEU and PPL.
+
+#### CPU vs. GPU
+For training on a GPU, set `use_cuda` in the config file to `True`. This requires the installation of required CUDA libraries.
+
+
+### Translating
+
+There's 3 options for testing what the model has learned.
+
+Whatever data you feed the model for translating, make sure it is properly pre-processed, just as you pre-processed the training data, e.g. tokenized and split into subwords (if working with BPEs).
+
+#### 1. Test Set Evaluation 
+For testing and evaluating on your parallel test/dev set, run 
 
 `python3 -m joeynmt test configs/default.yaml --output_path out`.
 
-This will generate translations for validation and test set in `out.[dev|test]` (optional)
-with the latest model in the `model_dir` (or a specific checkpoint set with `load_model`).
+This will generate translations for validation and test set (as specified in the configuration) in `out.[dev|test]`
+with the latest/best model in the `model_dir` (or a specific checkpoint set with `load_model`).
 It will also evaluate the outputs with `eval_metric`.
+If `--output_path` is not specified, it will not store the translation, and only do the evaluation and print the results.
 
-Note that post-processing like detokenization or de-BPE-ing is not included in this step, but has to be done manually.
+#### 2. File Translation
+In order to translate the contents of a file not contained in the configuration (here `my_input.txt`), simply run
 
+`python3 -m joeynmt translate configs/default.yaml < my_input.txt > out`.
+
+The translations will be written to stdout or alternatively`--output_path` if specified.
+
+#### 3. Interactive
+If you just want try a few examples, run
+
+`python3 -m joeynmt translate configs/default.yaml`
+
+and you'll be prompted to type input sentences that JoeyNMT will then translate with the model specified in the configuration.
+
+
+## Documentation and Tutorial
+[The docs](https://joeynmt.readthedocs.io) include an overview of the NMT implementation, a walk-through tutorial for building, training, tuning, testing and inspecting an NMT system, the API documentation and FAQs.
 
 ## Benchmarks
-Benchmarks on small models trained on GPU/CPU on standard data sets will be 
-posted here.
+Benchmarks on small models trained on GPU/CPU on standard data sets are reported here.
 
 - IWSLT15 En-Vi, word-based
 - IWSLT14 De-En, 32000 joint BPE, word-based
@@ -165,11 +205,12 @@ Joey NMT (beam=10, alpha=1.0) | word | 28.85 | 27.06 | 22.05M
 
 In addition, we compare to a BPE-based GRU model with 32k (Groundhog style). 
 Use `scripts/get_iwslt14_bpe.sh` to pre-process the data and `configs/iwslt14_deen_bpe.yaml` to train the model.
+This model is available for download [here](https://www.cl.uni-heidelberg.de/~kreutzer/joeynmt/models/iwslt14-deen-bpe/).
 
 Systems | level | dev | test | #params 
 --- | :---: | :---: | :---: | :---: 
-Joey NMT (greedy) | bpe | 27.8 | | 60.68M 
-Joey NMT (beam=5, alpha=1.0) | bpe | 28.74 | 27.63 | 60.68M 
+Joey NMT (greedy) | bpe | 27.57 | | 60.69M 
+Joey NMT (beam=5, alpha=1.0) | bpe | 28.55 | 27.34 | 60.69M 
 
 ## WMT 17 English-German and Latvian-English
 We compare against the results for recurrent BPE-based models that were reported in the [Sockeye paper](https://arxiv.org/pdf/1712.05690.pdf). 
@@ -207,7 +248,7 @@ Since this codebase is supposed to stay clean and minimalistic, contributions ad
 - Code cleanliness
 - Documentation quality
 - Speed or memory improvements
-- Code addressing issues
+- resolving issues
 
 Code extending the functionalities beyond the basics will most likely not end up in the master branch, but we're curions to learn what you used Joey for.
 

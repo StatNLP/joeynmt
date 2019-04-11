@@ -19,12 +19,14 @@ import torch.nn as nn
 
 from torchtext.data import Dataset
 
+from tensorboardX import SummaryWriter
+
 from joeynmt.model import build_model
 from joeynmt.speech_model import build_speech_model
 from joeynmt.batch import Batch
 from joeynmt.helpers import log_data_info, load_config, log_cfg, \
     store_attention_plots, load_checkpoint, make_model_dir, \
-    make_logger, set_seed
+    make_logger, set_seed, symlink_update, ConfigurationError
 from joeynmt.speech_model import Model
 from joeynmt.prediction import validate_on_data
 from joeynmt.data import load_data, load_audio_data, make_data_iter
@@ -53,6 +55,7 @@ class TrainManager:
         self.logger = make_logger(model_dir=self.model_dir)
         self.logging_freq = train_config.get("logging_freq", 100)
         self.valid_report_file = "{}/validations.txt".format(self.model_dir)
+        self.tb_writer = SummaryWriter(log_dir=self.model_dir+"/tensorboard/")
 
         # model
         self.model = model
@@ -63,6 +66,9 @@ class TrainManager:
         # objective
         self.loss = nn.NLLLoss(ignore_index=self.pad_index, reduction='sum')
         self.normalization = train_config.get("normalization", "batch")
+        if self.normalization not in ["batch", "tokens"]:
+            raise ConfigurationError("Invalid normalization. "
+                                     "Valid options: 'batch', 'tokens'.")
 
         # optimization
         self.learning_rate_min = train_config.get("learning_rate_min", 1.0e-8)
@@ -72,22 +78,29 @@ class TrainManager:
 
         # validation & early stopping
         self.validation_freq = train_config.get("validation_freq", 1000)
-        self.log_valid_sents = train_config.get("print_valid_sents", 3)
-        self.ckpt_queue = queue.Queue(maxsize=
-                                      train_config.get("keep_last_ckpts", 5))
+        self.log_valid_sents = train_config.get("print_valid_sents", [0, 1, 2])
+        self.ckpt_queue = queue.Queue(
+            maxsize=train_config.get("keep_last_ckpts", 5))
         self.eval_metric = train_config.get("eval_metric", "bleu")
+        if self.eval_metric not in ['bleu', 'chrf']:
+            raise ConfigurationError("Invalid setting for 'eval_metric', "
+                                     "valid options: 'bleu', 'chrf'.")
         self.early_stopping_metric = train_config.get("early_stopping_metric",
                                                       "eval_metric")
         # if we schedule after BLEU/chrf, we want to maximize it, else minimize
         # early_stopping_metric decides on how to find the early stopping point:
         # ckpts are written when there's a new high/low score for this metric
-        if self.early_stopping_metric == "eval_metric":
+        if self.early_stopping_metric in ["ppl", "loss"]:
+            self.minimize_metric = True
+        elif self.early_stopping_metric == "eval_metric":
             if self.eval_metric in ["bleu", "chrf"]:
                 self.minimize_metric = False
-            else:  # eval metric that has to get minimized
+            else:  # eval metric that has to get minimized (not yet implemented)
                 self.minimize_metric = True
-        else:  # loss or perplexity
-            self.minimize_metric = True
+        else:
+            raise ConfigurationError(
+                "Invalid setting for 'early_stopping_metric', "
+                "valid options: 'loss', 'ppl', 'eval_metric'.")
 
         # learning rate scheduling
         self.scheduler, self.scheduler_step_at = build_scheduler(
@@ -97,6 +110,9 @@ class TrainManager:
 
         # data & batch handling
         self.level = config["data"]["level"]
+        if self.level not in ["word", "bpe", "char"]:
+            raise ConfigurationError("Invalid segmentation level. "
+                                     "Valid options: 'word', 'bpe', 'char'.")
         self.shuffle = train_config.get("shuffle", True)
         self.epochs = train_config["epochs"]
         self.batch_size = train_config["batch_size"]
@@ -161,6 +177,9 @@ class TrainManager:
 
         self.ckpt_queue.put(model_path)
 
+        # create/modify symbolic link for best checkpoint
+        symlink_update(model_path, "best.ckpt")
+
     def init_from_checkpoint(self, path: str) -> None:
         """
         Initialize the trainer from a given checkpoint file.
@@ -176,7 +195,8 @@ class TrainManager:
         self.model.load_state_dict(model_checkpoint["model_state"])
         self.optimizer.load_state_dict(model_checkpoint["optimizer_state"])
 
-        if model_checkpoint["scheduler_state"] is not None:
+        if model_checkpoint["scheduler_state"] is not None and \
+                        self.scheduler is not None:
             self.scheduler.load_state_dict(model_checkpoint["scheduler_state"])
 
         # restore counts
@@ -214,6 +234,7 @@ class TrainManager:
             total_valid_duration = 0
             processed_tokens = self.total_tokens
             count = 0
+            epoch_loss = 0
 
             for batch in iter(train_iter):
                 # reactivate training
@@ -229,15 +250,18 @@ class TrainManager:
                 update = count == 0
                 # print(count, update, self.steps)
                 batch_loss = self._train_batch(batch, update=update)
+                self.tb_writer.add_scalar("train/train_batch_loss", batch_loss,
+                                          self.steps)
                 count = self.batch_multiplier if update else count
                 count -= 1
+                epoch_loss += batch_loss.detach().cpu().numpy()
 
                 # log learning progress
                 if self.steps % self.logging_freq == 0 and update:
                     elapsed = time.time() - start - total_valid_duration
                     elapsed_tokens = self.total_tokens - processed_tokens
                     self.logger.info(
-                        "Epoch %d Step: %d Loss: %f Tokens per Sec: %f",
+                        "Epoch %d Step: %d Batch Loss: %f Tokens per Sec: %f",
                         epoch_no + 1, self.steps, batch_loss,
                         elapsed_tokens / elapsed)
                     start = time.time()
@@ -257,6 +281,13 @@ class TrainManager:
                             use_cuda=self.use_cuda,
                             max_output_length=self.max_output_length,
                             loss_function=self.loss)
+
+                    self.tb_writer.add_scalar("valid/valid_loss",
+                                              valid_loss, self.steps)
+                    self.tb_writer.add_scalar("valid/valid_score",
+                                              valid_score, self.steps)
+                    self.tb_writer.add_scalar("valid/valid_ppl",
+                                              valid_ppl, self.steps)
 
                     if self.early_stopping_metric == "loss":
                         ckpt_score = valid_loss
@@ -304,17 +335,16 @@ class TrainManager:
                     # store validation set outputs
                     self._store_outputs(valid_hypotheses)
 
-                    # store attention plots for first three sentences of
-                    # valid data and one randomly chosen example
+                    # store attention plots for selected valid sentences
                     store_attention_plots(attentions=valid_attention_scores,
                                           targets=valid_hypotheses_raw,
                                           sources=[s for s in valid_data.src],
-                                          indices=[0, 1, 2,
-                                                   np.random.randint(0, len(
-                                                   valid_hypotheses))],
+                                          indices=self.log_valid_sents,
                                           output_prefix="{}/att.{}".format(
                                               self.model_dir,
-                                              self.steps))
+                                              self.steps),
+                                          tb_writer=self.tb_writer,
+                                          steps=self.steps)
 
                 if self.stop:
                     break
@@ -323,6 +353,9 @@ class TrainManager:
                     'Training ended since minimum lr %f was reached.',
                      self.learning_rate_min)
                 break
+
+            self.logger.info('Epoch %d: total training loss %.2f', epoch_no+1,
+                             epoch_loss)
         else:
             self.logger.info('Training ended after %d epochs.', epoch_no+1)
         self.logger.info('Best validation result at step %d: %f %s.',
@@ -427,7 +460,9 @@ class TrainManager:
         :param hypotheses_raw: raw hypotheses (list of list of tokens)
         :param references_raw: raw references (list of list of tokens)
         """
-        for p in range(min(self.log_valid_sents, len(sources))):
+        for p in self.log_valid_sents:
+            if p >= len(sources):
+                continue
             self.logger.debug("Example #%d", p)
             if sources_raw is not None:
                 self.logger.debug("\tRaw source: %s", sources_raw[p])
