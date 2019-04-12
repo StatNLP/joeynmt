@@ -21,13 +21,12 @@ from torchtext.data import Dataset
 
 from tensorboardX import SummaryWriter
 
-from joeynmt.model import build_model
-from joeynmt.speech_model import build_speech_model
+from joeynmt.model import build_model, Model
+from joeynmt.speech_model import build_speech_model, SpeechModel
 from joeynmt.batch import Batch
 from joeynmt.helpers import log_data_info, load_config, log_cfg, \
     store_attention_plots, load_checkpoint, make_model_dir, \
     make_logger, set_seed, symlink_update, ConfigurationError
-from joeynmt.speech_model import Model
 from joeynmt.prediction import validate_on_data
 from joeynmt.data import load_data, load_audio_data, make_data_iter
 from joeynmt.builders import build_optimizer, build_scheduler, \

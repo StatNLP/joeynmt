@@ -11,7 +11,7 @@ from torch import Tensor
 
 from joeynmt.initialization import initialize_model
 from joeynmt.embeddings import Embeddings
-from joeynmt.encoders import Encoder, RecurrentEncoder
+from joeynmt.encoders import Encoder, RecurrentEncoder, SpeechRecurrentEncoder
 from joeynmt.decoders import Decoder, RecurrentDecoder
 from joeynmt.constants import PAD_TOKEN, EOS_TOKEN, BOS_TOKEN
 from joeynmt.search import beam_search, greedy
@@ -19,9 +19,9 @@ from joeynmt.vocabulary import Vocabulary
 from joeynmt.batch import Batch
 
 
-class Model(nn.Module):
+class SpeechModel(nn.Module):
     """
-    Base Model class
+    Base Speech Model class
     """
 
     def __init__(self,
@@ -41,7 +41,7 @@ class Model(nn.Module):
         :param src_vocab: source vocabulary
         :param trg_vocab: target vocabulary
         """
-        super(Model, self).__init__()
+        super(SpeechModel, self).__init__()
 
         self.src_embed = src_embed
         self.trg_embed = trg_embed
@@ -199,7 +199,7 @@ class Model(nn.Module):
 
 def build_speech_model(cfg: dict = None,
                 src_vocab: Vocabulary = None,
-                trg_vocab: Vocabulary = None) -> Model:
+                trg_vocab: Vocabulary = None) -> SpeechModel:
     """
     Build and initialize the model according to the configuration.
 
@@ -224,13 +224,13 @@ def build_speech_model(cfg: dict = None,
             **cfg["decoder"]["embeddings"], vocab_size=len(trg_vocab),
             padding_idx=trg_padding_idx)
 
-    encoder = RecurrentEncoder(**cfg["encoder"],
+    encoder = SpeechRecurrentEncoder(**cfg["encoder"],
                                emb_size=src_embed.embedding_dim)
     decoder = RecurrentDecoder(**cfg["decoder"], encoder=encoder,
                                vocab_size=len(trg_vocab),
                                emb_size=trg_embed.embedding_dim)
 
-    model = Model(encoder=encoder, decoder=decoder,
+    model = SpeechModel(encoder=encoder, decoder=decoder,
                   src_embed=src_embed, trg_embed=trg_embed,
                   src_vocab=src_vocab, trg_vocab=trg_vocab)
 

@@ -315,7 +315,7 @@ class AudioDataset(TranslationDataset):
                         featuresT = features.T
                         # normalize coefficients column-wise for each example 
                         featuresNorm = librosa.util.normalize(featuresT) * 0.01
-                        featureS = torch.Tensor(featuresNorm)
+                        featureS = torch.Tensor(featuresT)
                         if char_level :
                             audio_dummy = "a" * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
                         else :
