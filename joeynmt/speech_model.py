@@ -90,7 +90,6 @@ class SpeechModel(nn.Module):
         :param src_mfcc: mfcc vectors of input audios
         :return: encoder outputs (output, hidden_concat)
         """
-        # print(self.encoder(mfcc, src_length, src_mask))
         return self.encoder(mfcc, src_length, src_mask)
 
     def decode(self, encoder_output: Tensor, encoder_hidden: Tensor,
@@ -137,8 +136,6 @@ class SpeechModel(nn.Module):
             input=log_probs.contiguous().view(-1, log_probs.size(-1)),
             target=batch.trg.contiguous().view(-1))
         # return batch loss = sum over all elements in batch that are not pad
-        #print("SRC:", batch.src)
-        #print("TRG:", batch.trg_input)
         return batch_loss
 
     def run_batch(self, batch: Batch, max_output_length: int, beam_size: int,

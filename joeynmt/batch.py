@@ -44,17 +44,14 @@ class Batch:
                 m = nn.ZeroPad2d((0, 0, 0, max_dim-x.shape[0]))
                 padded_mfcc.append(m(x))
             self.mfcc = torch.stack(padded_mfcc)
-            #print(self.mfcc)
 
         if hasattr(torch_batch, "trg"):
             trg, trg_lengths = torch_batch.trg
             # trg_input is used for teacher forcing, last one is cut off
             self.trg_input = trg[:, :-1]
             self.trg_lengths = trg_lengths
-            #print("Batch TRG INPUT:", self.trg_input, "LEN:", trg_lengths)
             # trg is used for loss computation, shifted by one since BOS
             self.trg = trg[:, 1:]
-            #print("Batch TRG:", self.trg)
             # we exclude the padded areas from the loss computation
             self.trg_mask = (self.trg != pad_index)
             self.ntokens = (self.trg != pad_index).data.sum().item()

@@ -306,7 +306,6 @@ class AudioDataset(TranslationDataset):
                     audio_line = audio_line.strip()
                     if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 :
                         y, sr = librosa.load(audio_line, sr=None)
-                        # print(audio_line, "Sampling rate is: ", sr)
                         # overwrite default values for the window width of 25 ms and stride of 10 ms (for sr = 16kHz)
                         # (n_fft : length of the FFT window, hop_length : number of samples between successive frames)
                         # default values: n_fft=2048, hop_length=512, n_mels=128
@@ -315,7 +314,7 @@ class AudioDataset(TranslationDataset):
                         featuresT = features.T
                         # normalize coefficients column-wise for each example 
                         featuresNorm = librosa.util.normalize(featuresT) * 0.01
-                        featureS = torch.Tensor(featuresT)
+                        featureS = torch.Tensor(featuresNorm)
                         if char_level :
                             audio_dummy = "a" * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
                         else :
