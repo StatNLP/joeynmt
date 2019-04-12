@@ -44,6 +44,7 @@ class Batch:
                 m = nn.ZeroPad2d((0, 0, 0, max_dim-x.shape[0]))
                 padded_mfcc.append(m(x))
             self.mfcc = torch.stack(padded_mfcc)
+            #print(self.mfcc)
 
         if hasattr(torch_batch, "trg"):
             trg, trg_lengths = torch_batch.trg

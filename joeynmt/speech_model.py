@@ -90,6 +90,7 @@ class Model(nn.Module):
         :param src_mfcc: mfcc vectors of input audios
         :return: encoder outputs (output, hidden_concat)
         """
+        # print(self.encoder(mfcc, src_length, src_mask))
         return self.encoder(mfcc, src_length, src_mask)
 
     def decode(self, encoder_output: Tensor, encoder_hidden: Tensor,
