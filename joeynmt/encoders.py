@@ -108,10 +108,9 @@ class RecurrentEncoder(Encoder):
         self._check_shapes_input_forward(embed_src=embed_src,
                                          src_length=src_length,
                                          mask=mask)
-        print("1: ", embed_src)
         # apply dropout ot the rnn input
         embed_src = self.rnn_input_dropout(embed_src)
-        print("2: ", embed_src)
+
         packed = pack_padded_sequence(embed_src, src_length, batch_first=True)
         output, hidden = self.rnn(packed)
 
@@ -182,7 +181,7 @@ class SpeechRecurrentEncoder(Encoder):
         rnn = nn.GRU if rnn_type == "gru" else nn.LSTM
 
         self.rnn = rnn(
-            emb_size, hidden_size, num_layers, batch_first=True,
+            hidden_size, hidden_size, num_layers, batch_first=True,
             bidirectional=bidirectional,
             dropout=dropout if num_layers > 1 else 0.)
 
@@ -230,16 +229,13 @@ class SpeechRecurrentEncoder(Encoder):
                                          src_length=src_length,
                                          mask=mask)
         
-        print("1: ", embed_src)
-
         # add a linear layer here
-        # print("2: ", embed_src)
+        lila_out = self.lila(embed_src)
 
-        # apply dropout ot the rnn input
-        embed_src = self.rnn_input_dropout(embed_src)
-        print("3: ", embed_src)
+        # apply dropout to the rnn input
+        lila_do = self.rnn_input_dropout(lila_out)
 
-        packed = pack_padded_sequence(embed_src, src_length, batch_first=True)
+        packed = pack_padded_sequence(lila_do, src_length, batch_first=True)
         output, hidden = self.rnn(packed)
 
         #pylint: disable=unused-variable
