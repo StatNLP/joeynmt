@@ -82,9 +82,9 @@ class TrainManager:
         self.ckpt_queue = queue.Queue(
             maxsize=train_config.get("keep_last_ckpts", 5))
         self.eval_metric = train_config.get("eval_metric", "bleu")
-        if self.eval_metric not in ['bleu', 'chrf']:
+        if self.eval_metric not in ['bleu', 'chrf', 'wer', 'cer']:
             raise ConfigurationError("Invalid setting for 'eval_metric', "
-                                     "valid options: 'bleu', 'chrf'.")
+                                     "valid options: 'bleu', 'chrf', 'wer', 'cer'.")
         self.early_stopping_metric = train_config.get("early_stopping_metric",
                                                       "eval_metric")
         # if we schedule after BLEU/chrf, we want to maximize it, else minimize
@@ -95,7 +95,7 @@ class TrainManager:
         elif self.early_stopping_metric == "eval_metric":
             if self.eval_metric in ["bleu", "chrf"]:
                 self.minimize_metric = False
-            else:  # eval metric that has to get minimized (not yet implemented)
+            else:  # eval metric that has to get minimized ("wer", "cer")
                 self.minimize_metric = True
         else:
             raise ConfigurationError(
