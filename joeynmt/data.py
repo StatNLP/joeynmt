@@ -245,7 +245,7 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
                             dataset=train_data, vocab_file=trg_vocab_file)
     src_vocab = build_vocab(field="src", min_freq=src_min_freq, max_size=src_max_size,
                             dataset=train_data, vocab_file=src_vocab_file)
-
+    #src_vocab = trg_vocab
     dev_data = AudioDataset(path=dev_path, text_ext="." + audio_lang, audio_ext=".txt", 
                             sfield=src_field, tfield=trg_field, num=mfcc_number,
                             char_level=char, train=False, check=check_ratio)
@@ -304,29 +304,33 @@ class AudioDataset(TranslationDataset):
                 for text_line, audio_line in zip(text_file, audio_file):
                     text_line = text_line.strip()
                     audio_line = audio_line.strip()
-                    y, sr = librosa.load(audio_line, sr=None)
-                    # overwrite default values for the window width of 25 ms and stride of 10 ms (for sr = 16kHz)
-                    # (n_fft : length of the FFT window, hop_length : number of samples between successive frames)
-                    # default values: n_fft=2048, hop_length=512, n_mels=128
-                    features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80)
-                    featuresT = features.T
-                    featureS = torch.Tensor(featuresT)
-                    if char_level :
-                        audio_dummy = "a" * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
-                    else :
-                        audio_dummy = "a " * (featuresT.shape[0] - 1) #generate a line with <unk> of given size
-                    if train :
-                        length_ratio = featuresT.shape[0] // (len(text_line) + 1)
-                        if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44  and length_ratio < check :
-                            examples.append(data.Example.fromlist([text_line, featureS, audio_dummy], all_fields))
-                        if length_ratio > maxi:
-                            maxi = length_ratio
-                        if length_ratio < mini:
-                            mini = length_ratio
-                        summa += length_ratio
-                        count += 1
-                    else:
-                        if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 :
+                    if text_line != '' and audio_line != '' and os.path.getsize(audio_line) > 44 :
+                        y, sr = librosa.load(audio_line, sr=None)
+                        # print(audio_line, "Sampling rate is: ", sr)
+                        # overwrite default values for the window width of 25 ms and stride of 10 ms (for sr = 16kHz)
+                        # (n_fft : length of the FFT window, hop_length : number of samples between successive frames)
+                        # default values: n_fft=2048, hop_length=512, n_mels=128
+                        # features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num)
+                        features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80)
+                        featuresT = features.T
+                        # normalize coefficients column-wise for each example 
+                        featuresNorm = librosa.util.normalize(featuresT) * 0.01
+                        featureS = torch.Tensor(featuresNorm)
+                        if char_level :
+                            audio_dummy = "a" * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
+                        else :
+                            audio_dummy = "a " * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
+                        if train :
+                            length_ratio = featuresT.shape[0] // (len(text_line) + 1)
+                            if length_ratio < check :
+                                examples.append(data.Example.fromlist([text_line, featureS, audio_dummy], all_fields))
+                            if length_ratio > maxi:
+                                maxi = length_ratio
+                            if length_ratio < mini:
+                                mini = length_ratio
+                            summa += length_ratio
+                            count += 1
+                        else:
                             examples.append(data.Example.fromlist([text_line, featureS, audio_dummy], all_fields))
         if train :
             length_info.write('mini={0}, maxi={1}, mean={2}, checked by {3} \n'.format(mini, maxi, summa/count, check))
@@ -369,15 +373,17 @@ class MonoAudioDataset(TranslationDataset):
         with open(audio_path) as audio_file:
             for audio_line in audio_file:
                 audio_line = audio_line.strip()
-                y, sr = librosa.load(audio_line, sr=None)
-                features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80)
-                featuresT = features.T
-                featureS = torch.Tensor(featuresT)
-                if char_level :
-                    audio_dummy = "a" * (featuresT.shape[0] - 2) #generate a line with <unk> of given size
-                else :
-                    audio_dummy = "a " * (featuresT.shape[0] - 2) #generate a line with <unk> of given size
                 if audio_line != '' and os.path.getsize(audio_line) > 44 :
+                    y, sr = librosa.load(audio_line, sr=None)
+                    features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80)
+                    featuresT = features.T
+                    # normalize coefficients column-wise for each example 
+                    featuresNorm = librosa.util.normalize(featuresT) * 0.01
+                    featureS = torch.Tensor(featuresNorm)
+                    if char_level :
+                        audio_dummy = "a" * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
+                    else :
+                        audio_dummy = "a " * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
                     examples.append(data.Example.fromlist([featureS, audio_dummy], fields))
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
 
