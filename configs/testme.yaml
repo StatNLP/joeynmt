@@ -19,7 +19,7 @@ data: # specify your data here
     trg_voc_limit: 102  # trg vocabulary only includes this many most frequent tokens, default: unlimited
     #src_vocab: "my_model/src_vocab.txt"  # if specified, load a vocabulary from this file
     #trg_vocab: "my_model/trg_vocab.txt"  # one token per line, line number is index
-    input_length_ratio: 10 # a possible training set's filter due to the length difference
+    input_length_ratio: 100 # a possible training set's filter due to the length difference
 
 testing:  # specify which inference algorithm to use for testing (for validation it's always greedy decoding)
     beam_size: 5  # size of the beam for beam search
@@ -29,8 +29,8 @@ training: # specify training details here
     #load_model: "my_model/3300.ckpt" # if given, load a pre-trained model from this checkpoint
     random_seed: 77 # set this seed to make training deterministic
     optimizer: "adam" # choices: "sgd", "adam", "adadelta", "adagrad", "rmsprop", default is SGD
-    learning_rate: 0.005  # initial learning rate, default: 3.0e-4
-    learning_rate_min: 0.0001  # stop learning when learning rate is reduced below this threshold, default: 1.0e-8
+    learning_rate: 0.001  # initial learning rate, default: 3.0e-4
+    learning_rate_min: 0.00001  # stop learning when learning rate is reduced below this threshold, default: 1.0e-8
     clip_grad_val: 1.0  # clip the gradients to this value when they exceed it, optional
     #clip_grad_norm: 1.0  # norm clipping instead of value clipping
     weight_decay: 0.1 # l2 regularization, default: 0
@@ -44,12 +44,12 @@ training: # specify training details here
     logging_freq: 10  # log the training progress after this many updates, default: 100
     eval_metric: "wer" # validation metric, default: "bleu", other options: "wer", "cer", "chrf", "token_accuracy", "sequence_accuracy"
     early_stopping_metric: "loss" # when a new high score on this metric is achieved, a checkpoint is written, when "eval_metric" (default) is maximized, when "loss" or "ppl" is minimized
-    model_dir: "testme_model" # directory where models and validation results are stored, required
+    model_dir: "models/mini/testme_model" # directory where models and validation results are stored, required
     overwrite: True # overwrite existing model directory, default: False. Do not set to True unless for debugging!
     #shuffle: False # shuffle the training data, default: True
     use_cuda: False # use CUDA for acceleration on GPU, required. Set to False when working on CPU.
-    #max_output_length: None  # maximum output length for decoding, default: None. If set to None, allow sentences of max 1.5*src length
-    print_valid_sents: 3  # print this many validation sentences during each validation run, default: 3
+    max_output_length: 150  # maximum output length for decoding, default: None. If set to None, allow sentences of max 1.5*src length
+    print_valid_sents: [0, 3, 5]  # print this many validation sentences during each validation run, default: 3
     keep_last_ckpts: 3 # keep this many of the latest checkpoints, if -1: all of them, default: 5
 
 model:  # specify your model architecture here
@@ -57,10 +57,10 @@ model:  # specify your model architecture here
     encoder:
         rnn_type: "gru" # type of recurrent unit to use, either "gru" or "lstm", default: "lstm"
         embeddings:
-            embedding_dim: 8 # size of embeddings
+            embedding_dim: 20 # size of embeddings
             scale: False  # scale the embeddings by sqrt of their size, default: False
             freeze: True  # if True, embeddings are not updated during training
-        hidden_size: 10 # size of RNN
+        hidden_size: 50 # size of RNN
         bidirectional: True # use a bi-directional encoder, default: True
         dropout: 0.2  # apply dropout to the inputs to the RNN, default: 0.0
         num_layers: 1 # stack this many layers of equal size, default: 1
@@ -68,10 +68,10 @@ model:  # specify your model architecture here
     decoder:
         rnn_type: "gru"
         embeddings:
-            embedding_dim: 8
+            embedding_dim: 20
             scale: False
             freeze: False  # if True, embeddings are not updated during training
-        hidden_size: 10
+        hidden_size: 50
         dropout: 0.2
         hidden_dropout: 0.2 # apply dropout to the attention vector, default: 0.0
         num_layers: 1
