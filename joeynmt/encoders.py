@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+import torch.nn.functional as F
 
 from joeynmt.helpers import freeze_params
 
@@ -157,6 +158,7 @@ class SpeechRecurrentEncoder(Encoder):
                  dropout: float = 0.,
                  bidirectional: bool = True,
                  freeze: bool = False,
+                 activation: str = "relu",
                  **kwargs) -> None:
         """
         Create a new recurrent encoder.
@@ -176,7 +178,9 @@ class SpeechRecurrentEncoder(Encoder):
         self.rnn_input_dropout = torch.nn.Dropout(p=dropout, inplace=False)
         self.type = rnn_type
         self.emb_size = emb_size
-        self.lila = nn.Linear(emb_size, hidden_size) 
+        self.lila1 = nn.Linear(emb_size, hidden_size)
+        self.lila2 = nn.Linear(hidden_size, hidden_size)
+        self.activation = activation
 
         rnn = nn.GRU if rnn_type == "gru" else nn.LSTM
 
@@ -229,11 +233,16 @@ class SpeechRecurrentEncoder(Encoder):
                                          src_length=src_length,
                                          mask=mask)
         
-        # add a linear layer here
-        lila_out = self.lila(embed_src)
+        # add 2 layers with nonlinear activation here
+        if self.activation == "tanh" :
+            lila_out1 = F.tanh(self.lila1(embed_src))
+            lila_out2 = F.tanh(self.lila2(lila_out1))
+        else :
+            lila_out1 = F.relu(self.lila1(embed_src))
+            lila_out2 = F.relu(self.lila2(lila_out1))
 
         # apply dropout to the rnn input
-        lila_do = self.rnn_input_dropout(lila_out)
+        lila_do = self.rnn_input_dropout(lila_out2)
 
         packed = pack_padded_sequence(lila_do, src_length, batch_first=True)
         output, hidden = self.rnn(packed)
