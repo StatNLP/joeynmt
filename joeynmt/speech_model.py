@@ -11,7 +11,7 @@ from torch import Tensor
 
 from joeynmt.initialization import initialize_model
 from joeynmt.embeddings import Embeddings
-from joeynmt.encoders import Encoder, RecurrentEncoder, SpeechRecurrentEncoder
+from joeynmt.encoders import Encoder, SpeechRecurrentEncoder
 from joeynmt.decoders import Decoder, RecurrentDecoder
 from joeynmt.constants import PAD_TOKEN, EOS_TOKEN, BOS_TOKEN
 from joeynmt.search import beam_search, greedy
@@ -55,7 +55,8 @@ class SpeechModel(nn.Module):
 
     #pylint: disable=arguments-differ
     def forward(self, src: Tensor, trg_input: Tensor, src_mask: Tensor,
-                src_lengths: Tensor, src_mfcc: Tensor) -> (Tensor, Tensor, Tensor, Tensor):
+                src_lengths: Tensor, conv_mask: Tensor, conv_lengths: Tensor,
+                src_mfcc: Tensor) -> (Tensor, Tensor, Tensor, Tensor):
         """
         Take in and process masked src and target sequences.
         Use the encoder hidden state to initialize the decoder
@@ -65,21 +66,24 @@ class SpeechModel(nn.Module):
         :param trg_input: target input
         :param src_mask: source mask
         :param src_lengths: length of source inputs
+        :param conv_mask: source mask after convolutions
+        :param conv_lengths: length of source inputs after convolutions
         :param src_mfcc: mfcc vectors of input audios
         :return: decoder outputs
         """
         encoder_output, encoder_hidden = self.encode(src=src,
                                                      src_length=src_lengths,
                                                      src_mask=src_mask,
+                                                     conv_length=conv_lengths,
                                                      mfcc=src_mfcc)
         unrol_steps = trg_input.size(1)
         return self.decode(encoder_output=encoder_output,
                            encoder_hidden=encoder_hidden,
-                           src_mask=src_mask, trg_input=trg_input,
+                           conv_mask=conv_mask, trg_input=trg_input,
                            unrol_steps=unrol_steps)
 
-    def encode(self, src: Tensor, src_length: Tensor, src_mask: Tensor, mfcc: Tensor) \
-            -> (Tensor, Tensor):
+    def encode(self, src: Tensor, src_length: Tensor, src_mask: Tensor,
+            conv_length: Tensor, mfcc: Tensor) -> (Tensor, Tensor):
         """
         Encodes the source sentence.
         TODO adapt to transformer
@@ -87,13 +91,14 @@ class SpeechModel(nn.Module):
         :param src:
         :param src_length:
         :param src_mask:
-        :param src_mfcc: mfcc vectors of input audios
+        :param conv_length:
+        :param mfcc: mfcc vectors of input audios
         :return: encoder outputs (output, hidden_concat)
         """
-        return self.encoder(mfcc, src_length, src_mask)
+        return self.encoder(mfcc, src_length, src_mask, conv_length)
 
     def decode(self, encoder_output: Tensor, encoder_hidden: Tensor,
-               src_mask: Tensor, trg_input: Tensor,
+               conv_mask: Tensor, trg_input: Tensor,
                unrol_steps: int, decoder_hidden: Tensor = None) \
             -> (Tensor, Tensor, Tensor, Tensor):
         """
@@ -101,7 +106,7 @@ class SpeechModel(nn.Module):
 
         :param encoder_output: encoder states for attention computation
         :param encoder_hidden: last encoder state for decoder initialization
-        :param src_mask: source mask, 1 at valid tokens
+        :param conv_mask: source mask after convolutions, 1 at valid tokens
         :param trg_input: target inputs
         :param unrol_steps: number of steps to unrol the decoder for
         :param decoder_hidden: decoder hidden state (optional)
@@ -110,7 +115,7 @@ class SpeechModel(nn.Module):
         return self.decoder(trg_embed=self.trg_embed(trg_input),
                             encoder_output=encoder_output,
                             encoder_hidden=encoder_hidden,
-                            src_mask=src_mask,
+                            src_mask=conv_mask,
                             unrol_steps=unrol_steps,
                             hidden=decoder_hidden)
 
@@ -126,7 +131,8 @@ class SpeechModel(nn.Module):
         # pylint: disable=unused-variable
         out, hidden, att_probs, _ = self.forward(
             src=batch.src, trg_input=batch.trg_input,
-            src_mask=batch.src_mask, src_lengths=batch.src_lengths, src_mfcc=batch.mfcc)
+            src_mask=batch.src_mask, src_lengths=batch.src_lengths, conv_mask=batch.conv_mask,
+            conv_lengths=batch.conv_lengths, src_mfcc=batch.mfcc)
 
         # compute log probs
         log_probs = F.log_softmax(out, dim=-1)
@@ -152,7 +158,7 @@ class SpeechModel(nn.Module):
         """
         encoder_output, encoder_hidden = self.encode(
             batch.src, batch.src_lengths,
-            batch.src_mask, batch.mfcc)
+            batch.src_mask, batch.conv_lengths, batch.mfcc)
 
         # if maximum output length is not globally specified, adapt to src len
         if max_output_length is None:
@@ -162,7 +168,7 @@ class SpeechModel(nn.Module):
         if beam_size == 0:
             stacked_output, stacked_attention_scores = greedy(
                 encoder_hidden=encoder_hidden, encoder_output=encoder_output,
-                src_mask=batch.src_mask, embed=self.trg_embed,
+                src_mask=batch.conv_mask, embed=self.trg_embed,
                 bos_index=self.bos_index, decoder=self.decoder,
                 max_output_length=max_output_length)
             # batch, time, max_src_length
@@ -170,7 +176,7 @@ class SpeechModel(nn.Module):
             stacked_output, stacked_attention_scores = \
                 beam_search(size=beam_size, encoder_output=encoder_output,
                             encoder_hidden=encoder_hidden,
-                            src_mask=batch.src_mask, embed=self.trg_embed,
+                            src_mask=batch.conv_mask, embed=self.trg_embed,
                             max_output_length=max_output_length,
                             alpha=beam_alpha, eos_index=self.eos_index,
                             pad_index=self.pad_index, bos_index=self.bos_index,

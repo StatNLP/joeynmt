@@ -181,6 +181,14 @@ class SpeechRecurrentEncoder(Encoder):
         self.lila1 = nn.Linear(emb_size, hidden_size)
         self.lila2 = nn.Linear(hidden_size, hidden_size)
         self.activation = activation
+        self.conv1 = nn.Sequential(
+            nn.Conv1d(hidden_size, hidden_size, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2, padding=0))
+        self.conv2 = nn.Sequential(
+            nn.Conv1d(hidden_size, hidden_size, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2, padding=0))
 
         rnn = nn.GRU if rnn_type == "gru" else nn.LSTM
 
@@ -195,23 +203,22 @@ class SpeechRecurrentEncoder(Encoder):
             freeze_params(self)
 
     #pylint: disable=invalid-name, unused-argument
-    def _check_shapes_input_forward(self, embed_src: Tensor, src_length: Tensor,
-                                    mask: Tensor) -> None:
+    def _check_shapes_input_forward(self, embed_src: Tensor, src_length: Tensor) \
+                                    -> None:
         """
         Make sure the shape of the inputs to `self.forward` are correct.
         Same input semantics as `self.forward`.
 
         :param embed_src: embedded source tokens
         :param src_length: source length
-        :param mask: source mask
         """
         assert embed_src.shape[0] == src_length.shape[0]
         assert embed_src.shape[2] == self.emb_size
         assert len(src_length.shape) == 1
 
     #pylint: disable=arguments-differ
-    def forward(self, embed_src: Tensor, src_length: Tensor, mask: Tensor) \
-            -> (Tensor, Tensor):
+    def forward(self, embed_src: Tensor, src_length: Tensor, mask: Tensor, \
+            conv_length: Tensor) -> (Tensor, Tensor):
         """
         Applies a bidirectional RNN to sequence of embeddings x.
         The input mini-batch x needs to be sorted by src length.
@@ -221,8 +228,8 @@ class SpeechRecurrentEncoder(Encoder):
             shape (batch_size, src_len, embed_size)
         :param src_length: length of src inputs
             (counting tokens before padding), shape (batch_size)
-        :param mask: indicates padding areas (zeros where padding), shape
-            (batch_size, src_len, embed_size)
+        :param conv_length: length of src inputs after convolutions
+            (counting tokens before padding), shape (batch_size)
         :return:
             - output: hidden states with
                 shape (batch_size, max_length, directions*hidden),
@@ -230,21 +237,41 @@ class SpeechRecurrentEncoder(Encoder):
                 shape (batch_size, directions*hidden)
         """
         self._check_shapes_input_forward(embed_src=embed_src,
-                                         src_length=src_length,
-                                         mask=mask)
+                                         src_length=src_length)
         
         # add 2 layers with nonlinear activation here
-        if self.activation == "tanh" :
+        if self.activation == "tanh":
             lila_out1 = F.tanh(self.lila1(embed_src))
             lila_out2 = F.tanh(self.lila2(lila_out1))
-        else :
+        else:
             lila_out1 = F.relu(self.lila1(embed_src))
             lila_out2 = F.relu(self.lila2(lila_out1))
 
-        # apply dropout to the rnn input
-        lila_do = self.rnn_input_dropout(lila_out2)
+        lila_out2 = lila_out2.transpose(1,2)
 
-        packed = pack_padded_sequence(lila_do, src_length, batch_first=True)
+        # add 2 convolutional layers here
+        conv_out1 = self.conv1(lila_out2)
+        conv_out1 = conv_out1.transpose(1,2)
+
+        if self.activation == "tanh":
+            lila_out3 = F.tanh(self.lila2(conv_out1))
+        else:
+            lila_out3 = F.relu(self.lila2(conv_out1))
+
+        lila_out3 = lila_out3.transpose(1,2)
+
+        conv_out2 = self.conv2(lila_out3)
+        conv_out2 = conv_out2.transpose(1,2)
+
+        if self.activation == "tanh":
+            lila_out4 = F.tanh(self.lila2(conv_out2))
+        else:
+            lila_out4 = F.relu(self.lila2(conv_out2))
+
+        # apply dropout to the rnn input
+        lila_do = self.rnn_input_dropout(lila_out4)
+
+        packed = pack_padded_sequence(lila_do, conv_length, batch_first=True)
         output, hidden = self.rnn(packed)
 
         #pylint: disable=unused-variable

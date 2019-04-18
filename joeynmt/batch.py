@@ -34,7 +34,11 @@ class Batch:
         self.trg_lengths = None
         self.ntokens = None
         self.use_cuda = use_cuda
-        
+
+        if hasattr(torch_batch, "conv"):
+            self.conv, self.conv_lengths = torch_batch.conv
+            self.conv_mask = (self.conv != pad_index).unsqueeze(-2)
+
         if hasattr(torch_batch, "mfcc"):
             self.mfcc = torch_batch.mfcc
             max_tensor = max(self.mfcc, key=lambda x: x.shape[0])
@@ -76,6 +80,10 @@ class Batch:
         if hasattr(self, "mfcc"):
             self.mfcc = self.mfcc.cuda()
 
+        if hasattr(self, "conv"):
+            self.conv = self.conv.cuda()
+            self.conv_mask = self.conv_mask.cuda()
+
     def sort_by_src_lengths(self):
         """
         Sort by src length (descending) and return index to revert sort
@@ -98,6 +106,13 @@ class Batch:
         if hasattr(self, "mfcc"):
             sorted_mfcc = self.mfcc[perm_index]
             self.mfcc = sorted_mfcc
+        if hasattr(self, "conv"):
+            sorted_conv_lengths = self.conv_lengths[perm_index]
+            sorted_conv = self.conv[perm_index]
+            sorted_conv_mask = self.conv_mask[perm_index]
+            self.conv = sorted_conv
+            self.conv_lengths = sorted_conv_lengths
+            self.conv_mask = sorted_conv_mask
             
         self.src = sorted_src
         self.src_lengths = sorted_src_lengths

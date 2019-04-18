@@ -259,7 +259,7 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
         else:
             # no target is given -> create dataset from src only
             test_data = MonoAudioDataset(path=test_path, audio_ext=".txt", 
-                            field=trg_field, num=mfcc_number, char_level=char)
+                            field=src_field, num=mfcc_number, char_level=char)
     trg_field.vocab = trg_vocab
     src_field.vocab = src_vocab
 
@@ -284,7 +284,7 @@ class AudioDataset(TranslationDataset):
             :param kwargs: Passed to the constructor of data.Dataset.
         """
         audio_field = data.RawField()
-        all_fields = [('trg', tfield), ('mfcc', audio_field), ('src', sfield)]
+        all_fields = [('trg', tfield), ('mfcc', audio_field), ('src', sfield), ('conv', sfield)]
 
         text_path = os.path.expanduser(path + text_ext)
         audio_path = os.path.expanduser(path + audio_ext)
@@ -317,12 +317,14 @@ class AudioDataset(TranslationDataset):
                         featureS = torch.Tensor(featuresNorm)
                         if char_level :
                             audio_dummy = "a" * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
+                            conv_dummy = "a" * int(round(featuresT.shape[0]/4) - 1)
                         else :
                             audio_dummy = "a " * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
+                            conv_dummy = "a " * int(round(featuresT.shape[0]/4) - 1)
                         if train :
                             length_ratio = featuresT.shape[0] // (len(text_line) + 1)
                             if length_ratio < check :
-                                examples.append(data.Example.fromlist([text_line, featureS, audio_dummy], all_fields))
+                                examples.append(data.Example.fromlist([text_line, featureS, audio_dummy, conv_dummy], all_fields))
                             if length_ratio > maxi:
                                 maxi = length_ratio
                             if length_ratio < mini:
@@ -330,7 +332,7 @@ class AudioDataset(TranslationDataset):
                             summa += length_ratio
                             count += 1
                         else:
-                            examples.append(data.Example.fromlist([text_line, featureS, audio_dummy], all_fields))
+                            examples.append(data.Example.fromlist([text_line, featureS, audio_dummy, conv_dummy], all_fields))
         if train :
             length_info.write('mini={0}, maxi={1}, mean={2}, checked by {3} \n'.format(mini, maxi, summa/count, check))
             length_info.close()
@@ -365,7 +367,7 @@ class MonoAudioDataset(TranslationDataset):
             :param kwargs: Passed to the constructor of data.Dataset.
         """
         audio_field = data.RawField()
-        fields = [('mfcc', audio_field), ('src', field)]
+        fields = [('mfcc', audio_field), ('src', field), ('conv', field)]
         audio_path = os.path.expanduser(path + audio_ext)
         examples = []
 
@@ -381,9 +383,11 @@ class MonoAudioDataset(TranslationDataset):
                     featureS = torch.Tensor(featuresNorm)
                     if char_level :
                         audio_dummy = "a" * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
+                        conv_dummy = "a" * int(round(featuresT.shape[0]/4) - 1)
                     else :
                         audio_dummy = "a " * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
-                    examples.append(data.Example.fromlist([featureS, audio_dummy], fields))
+                        conv_dummy = "a " * int(round(featuresT.shape[0]/4) - 1)
+                    examples.append(data.Example.fromlist([featureS, audio_dummy, conv_dummy], fields))
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
 
     def __len__(self):
