@@ -24,7 +24,7 @@ from joeynmt.vocabulary import Vocabulary
 
 
 # pylint: disable=too-many-arguments,too-many-locals,no-member
-def validate_on_data(model: Model, data: Dataset, batch_size: int,
+def validate_on_data(model, data: Dataset, batch_size: int,
                      use_cuda: bool, max_output_length: int,
                      level: str, eval_metric: Optional[str],
                      loss_function: torch.nn.Module = None,
