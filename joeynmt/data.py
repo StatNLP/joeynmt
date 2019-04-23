@@ -317,10 +317,10 @@ class AudioDataset(TranslationDataset):
                         featureS = torch.Tensor(featuresNorm)
                         if char_level :
                             audio_dummy = "a" * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
-                            conv_dummy = "a" * int(round(featuresT.shape[0]/4) - 1)
+                            conv_dummy = "a" * int(round(featuresT.shape[0]/16) - 1)
                         else :
                             audio_dummy = "a " * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
-                            conv_dummy = "a " * int(round(featuresT.shape[0]/4) - 1)
+                            conv_dummy = "a " * int(round(featuresT.shape[0]/16) - 1)
                         if train :
                             length_ratio = featuresT.shape[0] // (len(text_line) + 1)
                             if length_ratio < check :
@@ -383,10 +383,10 @@ class MonoAudioDataset(TranslationDataset):
                     featureS = torch.Tensor(featuresNorm)
                     if char_level :
                         audio_dummy = "a" * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
-                        conv_dummy = "a" * int(round(featuresT.shape[0]/4) - 1)
+                        conv_dummy = "a" * int(round(featuresT.shape[0]/16) - 1)
                     else :
                         audio_dummy = "a " * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
-                        conv_dummy = "a " * int(round(featuresT.shape[0]/4) - 1)
+                        conv_dummy = "a " * int(round(featuresT.shape[0]/16) - 1)
                     examples.append(data.Example.fromlist([featureS, audio_dummy, conv_dummy], fields))
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
 
