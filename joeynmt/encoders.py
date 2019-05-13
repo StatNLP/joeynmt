@@ -182,11 +182,11 @@ class SpeechRecurrentEncoder(Encoder):
         self.lila2 = nn.Linear(hidden_size, hidden_size)
         self.activation = activation
         self.conv1 = nn.Sequential(
-            nn.Conv1d(hidden_size, hidden_size, kernel_size=3, stride=2, padding=1),
+            nn.Conv1d(hidden_size, hidden_size, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=2, stride=2, padding=0))
         self.conv2 = nn.Sequential(
-            nn.Conv1d(hidden_size, hidden_size, kernel_size=3, stride=2, padding=1),
+            nn.Conv1d(hidden_size, hidden_size, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=2, stride=2, padding=0))
 

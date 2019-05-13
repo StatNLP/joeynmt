@@ -316,11 +316,11 @@ class AudioDataset(TranslationDataset):
                         featuresNorm = librosa.util.normalize(featuresT) * 0.01
                         featureS = torch.Tensor(featuresNorm)
                         if char_level :
-                            audio_dummy = "a" * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
-                            conv_dummy = "a" * int(round(featuresT.shape[0]/16) - 1)
+                            audio_dummy = "a" * (featuresT.shape[0] - 2) # generate a line with <unk> of given size
+                            conv_dummy = "a" * int(round(round(featuresT.shape[0]/2)/2) - 2)
                         else :
-                            audio_dummy = "a " * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
-                            conv_dummy = "a " * int(round(featuresT.shape[0]/16) - 1)
+                            audio_dummy = "a " * (featuresT.shape[0] - 2) # generate a line with <unk> of given size
+                            conv_dummy = "a " * int(round(round(featuresT.shape[0]/2)/2) - 2)
                         if train :
                             length_ratio = featuresT.shape[0] // (len(text_line) + 1)
                             if length_ratio < check :
@@ -382,11 +382,11 @@ class MonoAudioDataset(TranslationDataset):
                     featuresNorm = librosa.util.normalize(featuresT) * 0.01
                     featureS = torch.Tensor(featuresNorm)
                     if char_level :
-                        audio_dummy = "a" * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
-                        conv_dummy = "a" * int(round(featuresT.shape[0]/16) - 1)
+                        audio_dummy = "a" * (featuresT.shape[0] - 2) # generate a line with <unk> of given size
+                        conv_dummy = "a" * int(round(round(featuresT.shape[0]/2)/2) - 2)
                     else :
-                        audio_dummy = "a " * (featuresT.shape[0] - 1) # generate a line with <unk> of given size
-                        conv_dummy = "a " * int(round(featuresT.shape[0]/16) - 1)
+                        audio_dummy = "a " * (featuresT.shape[0] - 2) # generate a line with <unk> of given size
+                        conv_dummy = "a " * int(round(round(featuresT.shape[0]/2)/2) - 2)
                     examples.append(data.Example.fromlist([featureS, audio_dummy, conv_dummy], fields))
         super(TranslationDataset, self).__init__(examples, fields, **kwargs)
 
