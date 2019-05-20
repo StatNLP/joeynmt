@@ -204,10 +204,13 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
     lowercase = data_cfg["lowercase"]
     max_sent_length = data_cfg.get("max_sent_length", sys.maxsize)
     max_audio_length = data_cfg.get("max_audio_length", sys.maxsize)
-    mfcc_number = cfg["model"]["encoder"]["embeddings"]["embedding_dim"]
-    assert mfcc_number <= 80,\
-    "The number of used MFCCs could not be higher than the number of Mel bands. Change the encoder's embedding_dim."
+    number = cfg["model"]["encoder"]["embeddings"]["embedding_dim"]
+    assert number <= 128,\
+    "The number of used audio features could not be higher than the number of Mel bands. Change the encoder's embedding_dim."
     check_ratio = data_cfg.get("input_length_ratio", sys.maxsize)
+    audio_features = data_cfg["audio_features_level"]
+    htk = data_cfg["use_htk"]
+    scale = data_cfg["scale"]
 
     #pylint: disable=unnecessary-lambda
     if level == "char":
@@ -231,8 +234,9 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
 
     train_data = AudioDataset(path=train_path, text_ext="." + audio_lang,
                               audio_ext=".txt", sfield=src_field, tfield=trg_field, 
-                              num=mfcc_number, char_level=char, train=True, 
-                              check=check_ratio, filter_pred = lambda x: 
+                              num=number, char_level=char, train=True,
+                              check=check_ratio, audio_level=audio_features, htk=htk,
+                              scale=scale, filter_pred = lambda x:
                               len(vars(x)['src']) <= max_audio_length
                               and len(vars(x)['trg']) <= max_sent_length)
 
@@ -249,19 +253,21 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
                             dataset=train_data, vocab_file=src_vocab_file)
     #src_vocab = trg_vocab
     dev_data = AudioDataset(path=dev_path, text_ext="." + audio_lang, audio_ext=".txt", 
-                            sfield=src_field, tfield=trg_field, num=mfcc_number,
-                            char_level=char, train=False, check=check_ratio)
+                            sfield=src_field, tfield=trg_field, num=number,
+                            char_level=char, train=False, check=check_ratio,
+                            audio_level=audio_features, htk=htk, scale=scale)
     test_data = None
     if test_path is not None:
         # check if target exists
         if os.path.isfile(test_path + "." + audio_lang):
             test_data = AudioDataset(path=test_path, text_ext="." + audio_lang, 
-                            audio_ext=".txt", sfield=src_field, tfield=trg_field, num=mfcc_number, 
-                            char_level=char, train=False, check=check_ratio)
+                            audio_ext=".txt", sfield=src_field, tfield=trg_field, num=number,
+                            char_level=char, train=False, check=check_ratio,
+                            audio_level=audio_features, htk=htk, scale=scale)
         else:
             # no target is given -> create dataset from src only
             test_data = MonoAudioDataset(path=test_path, audio_ext=".txt", 
-                            field=src_field, num=mfcc_number, char_level=char)
+                            field=src_field, num=number, char_level=char)
     trg_field.vocab = trg_vocab
     src_field.vocab = src_vocab
 
@@ -272,17 +278,21 @@ class AudioDataset(TranslationDataset):
     """Defines a dataset for speech recognition/translation."""
 
     def __init__(self, path: str, text_ext: str, audio_ext: str, sfield: Field, tfield: Field, 
-                 num: int, char_level: bool, train: bool, check: int, **kwargs) -> None:
+            num: int, char_level: bool, train: bool, check: int, audio_level: str, htk: bool,
+            scale: bool, **kwargs) -> None:
         """Create an AudioDataset given path and fields.
 
             :param path: Prefix of path to the data files
             :param text_ext: Containing the extension to path for text file
             :param audio_ext: Containing the extension to path for audio file
             :param fields: Containing the fields that will be used for text data
-            :param num: Containing the number of mfccs to extract (= dimension of source embeddings)
+            :param num: Containing the number of features to extract (= dimension of source embeddings)
             :param char_level: Containing the indicator for char level
             :param train: Containing the indicator for training set 
             :param check: Containing the length ratio as a filter for training set
+            :param audio_level: Containing the extraction level of audio features extension
+            :param htk: Containing the indicator for mel filters generation
+            :param scale: Containing the indicator for audio features scaling
             :param kwargs: Passed to the constructor of data.Dataset.
         """
         audio_field = data.RawField()
@@ -312,8 +322,13 @@ class AudioDataset(TranslationDataset):
                         # (n_fft : length of the FFT window, hop_length : number of samples between successive frames)
                         # default values: n_fft=2048, hop_length=512, n_mels=128, htk=False
                         # features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num)
-                        features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80, htk=True)
-                        features = sklearn.preprocessing.scale(features, axis=1)
+                        # check which audio features should be extracted, default are mfccs
+                        if audio_level == "mel_fb" :
+                            features = librosa.feature.melspectrogram(y=y, sr=sr, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=num, htk=htk)
+                        else :
+                            features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), htk=htk)
+                        if scale :
+                            features = sklearn.preprocessing.scale(features, axis=1)
                         featuresT = features.T
                         # normalize coefficients column-wise for each example 
                         # featuresNorm = librosa.util.normalize(featuresT) * 0.01

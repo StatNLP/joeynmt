@@ -1,11 +1,14 @@
 name: "my_experiment"
 
-speech: True # default: True
+speech: False # default: True
 
 data: # specify your data here
     src: "de"  # src language: expected suffix of train files, e.g. "train.de"
     trg: "en"  # trg language
     audio: "src" # the language for the speech processing output, default: src
+    audio_features_level: "mfcc" # default: "mfcc", other option: "mel_fb"
+    use_htk: False # use HTK formula or Slaney for for mel filters
+    scale: True # center audio features to the mean and component wise scale to unit variance
     train: "test/data/toy/train"  # training data
     dev: "test/data/toy/dev"  # development data for validation
     test: "test/data/toy/test"  # test data for testing final model; optional

@@ -6,6 +6,9 @@ data: # specify your data here
     src: "de"  # src language: expected suffix of train files, e.g. "train.de"
     trg: "en"  # trg language
     audio: "src" # the language for the speech processing output, default: src
+    audio_features_level: "mel_fb" # default: "mfcc", other option: "mel_fb"
+    use_htk: True # use HTK formula or Slaney for for mel filters
+    scale: True # center audio features to the mean and component wise scale to unit variance
     train: "develop/raw/head"  # training data
     dev: "develop/raw/head"  # development data for validation
     test: "develop/raw/head"  # test data for testing final model; optional
@@ -42,7 +45,7 @@ training: # specify training details here
     epochs: 10  # train for this many epochs
     validation_freq: 5  # validate after this many updates (number of mini-batches), default: 1000
     logging_freq: 10  # log the training progress after this many updates, default: 100
-    eval_metric: "wer" # validation metric, default: "bleu", other options: "wer", "cer", "chrf", "token_accuracy", "sequence_accuracy"
+    eval_metric: "bleu" # validation metric, default: "bleu", other options: "wer", "cer", "chrf", "token_accuracy", "sequence_accuracy"
     early_stopping_metric: "loss" # when a new high score on this metric is achieved, a checkpoint is written, when "eval_metric" (default) is maximized, when "loss" or "ppl" is minimized
     model_dir: "models/mini/testme_model" # directory where models and validation results are stored, required
     overwrite: True # overwrite existing model directory, default: False. Do not set to True unless for debugging!
@@ -65,6 +68,7 @@ model:  # specify your model architecture here
         dropout: 0.2  # apply dropout to the inputs to the RNN, default: 0.0
         num_layers: 1 # stack this many layers of equal size, default: 1
         freeze: False  # if True, encoder parameters are not updated during training (does not include embedding parameters)
+        activation: "relu" # activation type for 2 layers following the src embeddings (only for speech), default: "relu", other options: "tanh"
     decoder:
         rnn_type: "gru"
         embeddings:
