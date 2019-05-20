@@ -7,6 +7,8 @@ import os
 import os.path
 import librosa
 import torch
+import sklearn 
+
 from typing import Optional
 
 from torchtext.datasets import TranslationDataset
@@ -308,13 +310,14 @@ class AudioDataset(TranslationDataset):
                         y, sr = librosa.load(audio_line, sr=None)
                         # overwrite default values for the window width of 25 ms and stride of 10 ms (for sr = 16kHz)
                         # (n_fft : length of the FFT window, hop_length : number of samples between successive frames)
-                        # default values: n_fft=2048, hop_length=512, n_mels=128
+                        # default values: n_fft=2048, hop_length=512, n_mels=128, htk=False
                         # features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num)
-                        features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80)
+                        features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80, htk=True)
+                        features = sklearn.preprocessing.scale(features, axis=1)
                         featuresT = features.T
                         # normalize coefficients column-wise for each example 
-                        featuresNorm = librosa.util.normalize(featuresT) * 0.01
-                        featureS = torch.Tensor(featuresNorm)
+                        # featuresNorm = librosa.util.normalize(featuresT) * 0.01
+                        featureS = torch.Tensor(featuresT)
                         if char_level :
                             audio_dummy = "a" * (featuresT.shape[0] - 2) # generate a line with <unk> of given size
                             conv_dummy = "a" * int(round(round(featuresT.shape[0]/2)/2) - 2)
