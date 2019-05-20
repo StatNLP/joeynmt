@@ -8,7 +8,6 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-import torch.nn.functional as F
 
 from joeynmt.helpers import freeze_params
 
@@ -241,11 +240,11 @@ class SpeechRecurrentEncoder(Encoder):
         
         # add 2 layers with nonlinear activation here
         if self.activation == "tanh":
-            lila_out1 = F.tanh(self.lila1(embed_src))
-            lila_out2 = F.tanh(self.lila2(lila_out1))
+            lila_out1 = torch.tanh(self.lila1(embed_src))
+            lila_out2 = torch.tanh(self.lila2(lila_out1))
         else:
-            lila_out1 = F.relu(self.lila1(embed_src))
-            lila_out2 = F.relu(self.lila2(lila_out1))
+            lila_out1 = torch.relu(self.lila1(embed_src))
+            lila_out2 = torch.relu(self.lila2(lila_out1))
 
         lila_out2 = lila_out2.transpose(1,2)
 
@@ -254,9 +253,9 @@ class SpeechRecurrentEncoder(Encoder):
         conv_out1 = conv_out1.transpose(1,2)
 
         if self.activation == "tanh":
-            lila_out3 = F.tanh(self.lila2(conv_out1))
+            lila_out3 = torch.tanh(self.lila2(conv_out1))
         else:
-            lila_out3 = F.relu(self.lila2(conv_out1))
+            lila_out3 = torch.relu(self.lila2(conv_out1))
 
         lila_out3 = lila_out3.transpose(1,2)
 
@@ -264,9 +263,9 @@ class SpeechRecurrentEncoder(Encoder):
         conv_out2 = conv_out2.transpose(1,2)
 
         if self.activation == "tanh":
-            lila_out4 = F.tanh(self.lila2(conv_out2))
+            lila_out4 = torch.tanh(self.lila2(conv_out2))
         else:
-            lila_out4 = F.relu(self.lila2(conv_out2))
+            lila_out4 = torch.relu(self.lila2(conv_out2))
 
         # apply dropout to the rnn input
         lila_do = self.rnn_input_dropout(lila_out4)
