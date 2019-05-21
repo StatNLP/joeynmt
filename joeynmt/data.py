@@ -205,7 +205,7 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
     max_sent_length = data_cfg.get("max_sent_length", sys.maxsize)
     max_audio_length = data_cfg.get("max_audio_length", sys.maxsize)
     number = cfg["model"]["encoder"]["embeddings"]["embedding_dim"]
-    assert number <= 128,\
+    assert number <= 80,\
     "The number of used audio features could not be higher than the number of Mel bands. Change the encoder's embedding_dim."
     check_ratio = data_cfg.get("input_length_ratio", sys.maxsize)
     audio_features = data_cfg["audio_features_level"]
