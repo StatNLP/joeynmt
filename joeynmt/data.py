@@ -210,7 +210,7 @@ def load_audio_data(cfg: dict) -> (Dataset, Dataset, Optional[Dataset],
     check_ratio = data_cfg.get("input_length_ratio", sys.maxsize)
     audio_features = data_cfg["audio_features_level"]
     htk = data_cfg["use_htk"]
-    scale = data_cfg["scale"]
+    scale = data_cfg.get("scale", None)
 
     #pylint: disable=unnecessary-lambda
     if level == "char":
@@ -279,7 +279,7 @@ class AudioDataset(TranslationDataset):
 
     def __init__(self, path: str, text_ext: str, audio_ext: str, sfield: Field, tfield: Field, 
             num: int, char_level: bool, train: bool, check: int, audio_level: str, htk: bool,
-            scale: bool, **kwargs) -> None:
+            scale: str, **kwargs) -> None:
         """Create an AudioDataset given path and fields.
 
             :param path: Prefix of path to the data files
@@ -327,11 +327,16 @@ class AudioDataset(TranslationDataset):
                             features = librosa.feature.melspectrogram(y=y, sr=sr, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=num, htk=htk)
                         else :
                             features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80, htk=htk)
-                        if scale :
-                            features = sklearn.preprocessing.scale(features, axis=1)
                         featuresT = features.T
-                        # normalize coefficients column-wise for each example 
-                        # featuresNorm = librosa.util.normalize(featuresT) * 0.01
+                        if scale == "norm" :
+                            # normalize coefficients column-wise for each example normalizes (each column by aggregating over the rows)
+                            featuresNorm = librosa.util.normalize(featuresT) * 0.01 # the input array is scaled to the norm
+                        elif scale == "mean" :
+                            featuresT = sklearn.preprocessing.scale(featuresT, with_std=False) * 0.01 # center to the mean
+                        elif scale == "unit_var" :
+                            featuresT = sklearn.preprocessing.scale(featuresT, with_mean=False) * 0.01 # component-wise scale to unit variance
+                        elif scale == "all" :
+                            featuresT = sklearn.preprocessing.scale(featuresT) * 0.01 # center to the mean and component-wise scale to unit variance
                         featureS = torch.Tensor(featuresT)
                         if char_level :
                             audio_dummy = "a" * (featuresT.shape[0] - 2) # generate a line with <unk> of given size

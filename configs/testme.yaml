@@ -8,7 +8,7 @@ data: # specify your data here
     audio: "src" # the language for the speech processing output, default: src
     audio_features_level: "mel_fb" # default: "mfcc", other option: "mel_fb"
     use_htk: True # use HTK formula or Slaney for for mel filters
-    scale: True # center audio features to the mean and component wise scale to unit variance
+    #scale: "None" # normalize data, default: "None", other options: "norm", "mean", "unit_var", "all"
     train: "develop/raw/head"  # training data
     dev: "develop/raw/head"  # development data for validation
     test: "develop/raw/head"  # test data for testing final model; optional
