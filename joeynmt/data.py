@@ -326,7 +326,7 @@ class AudioDataset(TranslationDataset):
                         if audio_level == "mel_fb" :
                             features = librosa.feature.melspectrogram(y=y, sr=sr, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=num, htk=htk)
                         else :
-                            features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), htk=htk)
+                            features = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=num, n_fft=int(sr/40), hop_length=int(sr/100), n_mels=80, htk=htk)
                         if scale :
                             features = sklearn.preprocessing.scale(features, axis=1)
                         featuresT = features.T
