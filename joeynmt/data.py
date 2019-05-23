@@ -330,13 +330,13 @@ class AudioDataset(TranslationDataset):
                         featuresT = features.T
                         if scale == "norm" :
                             # normalize coefficients column-wise for each example normalizes (each column by aggregating over the rows)
-                            featuresNorm = librosa.util.normalize(featuresT) * 0.01 # the input array is scaled to the norm
+                            featuresNorm = librosa.util.normalize(featuresT) # the input array is scaled to the norm between -1 and 1
                         elif scale == "mean" :
-                            featuresT = sklearn.preprocessing.scale(featuresT, with_std=False) * 0.01 # center to the mean
+                            featuresT = sklearn.preprocessing.scale(featuresT, with_std=False) # center to the mean
                         elif scale == "unit_var" :
-                            featuresT = sklearn.preprocessing.scale(featuresT, with_mean=False) * 0.01 # component-wise scale to unit variance
+                            featuresT = sklearn.preprocessing.scale(featuresT, with_mean=False) # component-wise scale to unit variance
                         elif scale == "all" :
-                            featuresT = sklearn.preprocessing.scale(featuresT) * 0.01 # center to the mean and component-wise scale to unit variance
+                            featuresT = sklearn.preprocessing.scale(featuresT) # center to the mean and component-wise scale to unit variance
                         featureS = torch.Tensor(featuresT)
                         if char_level :
                             audio_dummy = "a" * (featuresT.shape[0] - 2) # generate a line with <unk> of given size
