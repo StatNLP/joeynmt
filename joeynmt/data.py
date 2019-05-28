@@ -8,6 +8,7 @@ import os.path
 import librosa
 import torch
 import sklearn 
+import warnings
 
 from typing import Optional
 
@@ -356,6 +357,9 @@ class AudioDataset(TranslationDataset):
                             count += 1
                         else:
                             examples.append(data.Example.fromlist([text_line, featureS, audio_dummy, conv_dummy], all_fields))
+                    else : 
+                        warnings.warn('There is an empty text line or audio file.')
+                        print("Check the text line: ", text_line, " or audio file: ", audio_line)
         if train :
             length_info.write('mini={0}, maxi={1}, mean={2}, checked by {3} \n'.format(mini, maxi, summa/count, check))
             length_info.close()
