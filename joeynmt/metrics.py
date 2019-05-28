@@ -17,11 +17,14 @@ def wer(hypotheses, references):
     """
     wer = []
     for hyp, ref in zip(hypotheses, references):
-        wer.append(editdistance.eval(hyp.split(), ref.split())/len(ref.split()))
-        print("H:", hyp, "SPLIT:", hyp.split(), "LEN:", len(hyp.split()))
-        print("R:", ref, "SPLIT:", ref.split(), "LEN:", len(ref.split()))
-        print(editdistance.eval(hyp.split(), ref.split())/len(ref.split()))
-    print("wer:", sum(wer), "devided by", len(wer))
+        score = editdistance.eval(hyp.split(), ref.split())/len(ref.split())
+        if score > 1 :
+            score = 1
+        wer.append(score)
+        #print("H:", hyp, "SPLIT:", hyp.split(), "LEN:", len(hyp.split()))
+        #print("R:", ref, "SPLIT:", ref.split(), "LEN:", len(ref.split()))
+        #print(editdistance.eval(hyp.split(), ref.split())/len(ref.split()))
+    #print("wer:", sum(wer), "devided by", len(wer))
     return sum(wer)/len(wer)
 
 
