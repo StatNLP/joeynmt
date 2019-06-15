@@ -157,6 +157,7 @@ class SpeechRecurrentEncoder(Encoder):
                  bidirectional: bool = True,
                  freeze: bool = False,
                  activation: str = "relu",
+                 last_activation: str = "None",
                  **kwargs) -> None:
         """
         Create a new recurrent encoder.
@@ -179,6 +180,7 @@ class SpeechRecurrentEncoder(Encoder):
         self.lila1 = nn.Linear(emb_size, hidden_size)
         self.lila2 = nn.Linear(hidden_size, hidden_size)
         self.activation = activation
+        self.last_activation = last_activation
         self.conv1 = nn.Sequential(
             nn.Conv1d(hidden_size, hidden_size, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -236,7 +238,7 @@ class SpeechRecurrentEncoder(Encoder):
         """
         self._check_shapes_input_forward(embed_src=embed_src,
                                          src_length=src_length)
-        
+
         # add 2 layers with nonlinear activation here
         if self.activation == "tanh":
             lila_out1 = torch.tanh(self.lila1(embed_src))
@@ -295,6 +297,13 @@ class SpeechRecurrentEncoder(Encoder):
         #pylint: disable=no-member
         hidden_concat = torch.cat(
             [fwd_hidden_last, bwd_hidden_last], dim=2).squeeze(0)
+
+        # add a non-linear activation for the output layer
+        if self.last_activation == "relu":
+            output = torch.relu(output)
+        elif self.last_activation == "tanh":
+            output = torch.tanh(output)
+
         # final: batch x directions*hidden
         return output, hidden_concat
 
