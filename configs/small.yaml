@@ -70,6 +70,7 @@ model:  # specify your model architecture here
         freeze: False  # if True, encoder parameters are not updated during training (does not include embedding parameters)
         activation: "relu" # activation type for 2 layers following the src embeddings (only for speech), default: "relu", other options: "tanh"
         last_activation: "None" # non-linear activation after RNNs in speech encoder, default: "None", other options: "tanh", "relu"
+        layer_norm: False # layer normalization layers for embeddings, 2 convolutions and output layer, default: False
     decoder:
         rnn_type: "gru"
         embeddings:

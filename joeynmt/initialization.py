@@ -157,8 +157,9 @@ def initialize_model(model: nn.Module, cfg: dict, src_padding_idx: int,
                 else:
                     init_fn_(p)
 
-            else:
-                raise RuntimeError("unexpected init situation")
+            # commented out for a default LayerNorm initialization
+            # else:
+                # raise RuntimeError("unexpected init situation")
 
         # zero out paddings
         model.src_embed.lut.weight.data[src_padding_idx].zero_()

@@ -158,6 +158,7 @@ class SpeechRecurrentEncoder(Encoder):
                  freeze: bool = False,
                  activation: str = "relu",
                  last_activation: str = "None",
+                 layer_norm: bool = False,
                  **kwargs) -> None:
         """
         Create a new recurrent encoder.
@@ -189,6 +190,12 @@ class SpeechRecurrentEncoder(Encoder):
             nn.Conv1d(hidden_size, hidden_size, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=2, stride=2, padding=0))
+        self.layer_norm = layer_norm
+        if self.layer_norm:
+            self.norm_emb = nn.LayerNorm(emb_size)
+            self.norm1 = nn.LayerNorm(hidden_size)
+            self.norm2 = nn.LayerNorm(hidden_size)
+            self.norm_out = nn.LayerNorm(2 * hidden_size if bidirectional else hidden_size)
 
         rnn = nn.GRU if rnn_type == "gru" else nn.LSTM
 
@@ -239,7 +246,11 @@ class SpeechRecurrentEncoder(Encoder):
         self._check_shapes_input_forward(embed_src=embed_src,
                                          src_length=src_length)
 
-        # add 2 layers with nonlinear activation here
+        # layer normalization
+        if self.layer_norm:
+            embed_src = self.norm_emb(embed_src)
+
+        # 2 layers with nonlinear activation
         if self.activation == "tanh":
             lila_out1 = torch.tanh(self.lila1(embed_src))
             lila_out2 = torch.tanh(self.lila2(lila_out1))
@@ -249,19 +260,26 @@ class SpeechRecurrentEncoder(Encoder):
 
         lila_out2 = lila_out2.transpose(1,2)
 
-        # add 2 convolutional layers here
+        # 2 convolutional layers
         conv_out1 = self.conv1(lila_out2)
         conv_out1 = conv_out1.transpose(1,2)
+
+        # layer normalization
+        if self.layer_norm:
+            conv_out1 = self.norm1(conv_out1)
 
         if self.activation == "tanh":
             lila_out3 = torch.tanh(self.lila2(conv_out1))
         else:
             lila_out3 = torch.relu(self.lila2(conv_out1))
-
         lila_out3 = lila_out3.transpose(1,2)
 
         conv_out2 = self.conv2(lila_out3)
         conv_out2 = conv_out2.transpose(1,2)
+
+        # layer normalization
+        if self.layer_norm:
+            conv_out2 = self.norm2(conv_out2)
 
         if self.activation == "tanh":
             lila_out4 = torch.tanh(self.lila2(conv_out2))
@@ -298,7 +316,11 @@ class SpeechRecurrentEncoder(Encoder):
         hidden_concat = torch.cat(
             [fwd_hidden_last, bwd_hidden_last], dim=2).squeeze(0)
 
-        # add a non-linear activation for the output layer
+        # layer normalization
+        if self.layer_norm:
+            output = self.norm_out(output)
+
+        # a non-linear activation for the output layer
         if self.last_activation == "relu":
             output = torch.relu(output)
         elif self.last_activation == "tanh":
