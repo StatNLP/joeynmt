@@ -159,6 +159,7 @@ class SpeechRecurrentEncoder(Encoder):
                  activation: str = "relu",
                  last_activation: str = "None",
                  layer_norm: bool = False,
+                 emb_norm: bool = False,
                  **kwargs) -> None:
         """
         Create a new recurrent encoder.
@@ -191,11 +192,13 @@ class SpeechRecurrentEncoder(Encoder):
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=2, stride=2, padding=0))
         self.layer_norm = layer_norm
+        self.emb_norm = emb_norm
         if self.layer_norm:
-            self.norm_emb = nn.LayerNorm(emb_size)
             self.norm1 = nn.LayerNorm(hidden_size)
             self.norm2 = nn.LayerNorm(hidden_size)
             self.norm_out = nn.LayerNorm(2 * hidden_size if bidirectional else hidden_size)
+        if self.emb_norm:
+            self.norm_emb = nn.LayerNorm(emb_size)
 
         rnn = nn.GRU if rnn_type == "gru" else nn.LSTM
 
@@ -246,8 +249,8 @@ class SpeechRecurrentEncoder(Encoder):
         self._check_shapes_input_forward(embed_src=embed_src,
                                          src_length=src_length)
 
-        # layer normalization
-        if self.layer_norm:
+        # embeddings normalization
+        if self.emb_norm:
             embed_src = self.norm_emb(embed_src)
 
         # 2 layers with nonlinear activation
