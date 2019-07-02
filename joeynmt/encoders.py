@@ -181,6 +181,8 @@ class SpeechRecurrentEncoder(Encoder):
         self.emb_size = emb_size
         self.lila1 = nn.Linear(emb_size, hidden_size)
         self.lila2 = nn.Linear(hidden_size, hidden_size)
+        self.lila3 = nn.Linear(hidden_size, hidden_size)
+        self.lila4 = nn.Linear(hidden_size, hidden_size)
         self.activation = activation
         self.last_activation = last_activation
         self.conv1 = nn.Sequential(
@@ -272,9 +274,9 @@ class SpeechRecurrentEncoder(Encoder):
             conv_out1 = self.norm1(conv_out1)
 
         if self.activation == "tanh":
-            lila_out3 = torch.tanh(self.lila2(conv_out1))
+            lila_out3 = torch.tanh(self.lila3(conv_out1))
         else:
-            lila_out3 = torch.relu(self.lila2(conv_out1))
+            lila_out3 = torch.relu(self.lila3(conv_out1))
         lila_out3 = lila_out3.transpose(1,2)
 
         conv_out2 = self.conv2(lila_out3)
@@ -285,9 +287,9 @@ class SpeechRecurrentEncoder(Encoder):
             conv_out2 = self.norm2(conv_out2)
 
         if self.activation == "tanh":
-            lila_out4 = torch.tanh(self.lila2(conv_out2))
+            lila_out4 = torch.tanh(self.lila4(conv_out2))
         else:
-            lila_out4 = torch.relu(self.lila2(conv_out2))
+            lila_out4 = torch.relu(self.lila4(conv_out2))
 
         # apply dropout to the rnn input
         lila_do = self.rnn_input_dropout(lila_out4)
