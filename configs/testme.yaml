@@ -63,15 +63,16 @@ model:  # specify your model architecture here
             embedding_dim: 20 # size of embeddings
             scale: False  # scale the embeddings by sqrt of their size, default: False
             freeze: True  # if True, embeddings are not updated during training
-        hidden_size: 50 # size of RNN
+        hidden_size: 256 # size of RNN
         bidirectional: True # use a bi-directional encoder, default: True
         dropout: 0.2  # apply dropout to the inputs to the RNN, default: 0.0
-        num_layers: 1 # stack this many layers of equal size, default: 1
+        num_layers: 3 # stack this many layers of equal size, default: 1
         freeze: False  # if True, encoder parameters are not updated during training (does not include embedding parameters)
         activation: "tanh" # activation type for 2 layers following the src embeddings (only for speech), default: "relu", other options: "tanh"
         last_activation: "relu" # non-linear activation after RNNs in speech encoder, default: "None", other options: "tanh", "relu"
-        layer_norm: False # layer normalization layers for 2 CNNs and RNN layer, default: False
+        layer_norm: True # layer normalization layers for 2 CNNs and RNN layer, default: False
         emb_norm: False # layer normalization layers for embeddings, default: False
+        same_weights: True # use same weights for linear layers, default: False
     decoder:
         rnn_type: "gru"
         embeddings:
