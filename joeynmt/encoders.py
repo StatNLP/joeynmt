@@ -204,7 +204,6 @@ class SpeechRecurrentEncoder(Encoder):
             self.norm_out = nn.LayerNorm(2 * hidden_size if bidirectional else hidden_size)
         if self.emb_norm:
             self.norm_emb = nn.LayerNorm(emb_size)
-        self.same_weights = same_weights
 
         rnn = nn.GRU if rnn_type == "gru" else nn.LSTM
 
