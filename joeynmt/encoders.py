@@ -299,14 +299,14 @@ class SpeechRecurrentEncoder(Encoder):
 
         if not self.same_weights:
             if self.activation == "tanh":
-                lila_out4 = torch.tanh(self.lila4(conv_out1))
+                lila_out4 = torch.tanh(self.lila4(conv_out2))
             else:
-                lila_out4 = torch.relu(self.lila4(conv_out1))
+                lila_out4 = torch.relu(self.lila4(conv_out2))
         else:
             if self.activation == "tanh":
-                lila_out4 = torch.tanh(self.lila2(conv_out1))
+                lila_out4 = torch.tanh(self.lila2(conv_out2))
             else:
-                lila_out4 = torch.relu(self.lila2(conv_out1))
+                lila_out4 = torch.relu(self.lila2(conv_out2))
 
         # apply dropout to the rnn input
         lila_do = self.rnn_input_dropout(lila_out4)
