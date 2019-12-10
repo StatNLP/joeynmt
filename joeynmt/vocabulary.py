@@ -101,7 +101,8 @@ class Vocabulary:
     def __len__(self) -> int:
         return len(self.itos)
 
-    def array_to_sentence(self, array: np.array, cut_at_eos=True) -> List[str]:
+    def array_to_sentence(self, array: np.array, cut_at_eos=True,
+                          ignore_pad=True) -> List[str]:
         """
         Converts an array of IDs to a sentence, optionally cutting the result
         off at the end-of-sequence token.
@@ -113,6 +114,8 @@ class Vocabulary:
         sentence = []
         for i in array:
             s = self.itos[i]
+            if s == PAD_TOKEN and ignore_pad:
+                continue
             if cut_at_eos and s == EOS_TOKEN:
                 break
             sentence.append(s)
