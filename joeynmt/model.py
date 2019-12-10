@@ -144,7 +144,7 @@ class Model(nn.Module):
         return batch_loss
 
     def run_batch(self, batch: Batch, max_output_length: int, beam_size: int,
-                  beam_alpha: float, return_logp: bool = False) \
+                  beam_alpha: float, return_logp: bool = False, nbest: int = 1) \
             -> (np.array, np.array, Optional[np.array]):
         """
         Get outputs and attentions scores for a given batch
@@ -182,7 +182,7 @@ class Model(nn.Module):
             stacked_output, stacked_attention_scores, logprobs = \
                     beam_search(
                         size=beam_size, encoder_output=encoder_output,
-                        encoder_hidden=encoder_hidden,
+                        encoder_hidden=encoder_hidden, n_best=nbest,
                         src_mask=batch.src_mask, embed=self.trg_embed,
                         max_output_length=max_output_length,
                         alpha=beam_alpha, eos_index=self.eos_index,

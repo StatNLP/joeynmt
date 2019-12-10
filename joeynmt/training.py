@@ -344,6 +344,7 @@ class TrainManager:
                         valid_logps = validate_on_data(
                             batch_size=self.batch_size,
                             data=valid_data,
+                            nbest=1,
                             eval_metric=self.eval_metric,
                             level=self.level, model=self.model,
                             use_cuda=self.use_cuda,

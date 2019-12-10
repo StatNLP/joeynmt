@@ -29,7 +29,8 @@ def validate_on_data(model: Model, data: Dataset,
                      loss_function: torch.nn.Module = None,
                      beam_size: int = 0, beam_alpha: int = -1,
                      return_logp: bool = False,
-                     batch_type: str = "sentence"
+                     batch_type: str = "sentence",
+                     nbest: int = 1,
                      ) \
         -> (float, float, float, List[str], List[List[str]], List[str],
             List[str], List[List[str]], List[np.array], Optional[np.array]):
@@ -97,19 +98,23 @@ def validate_on_data(model: Model, data: Dataset,
                 total_nseqs += batch.nseqs
 
             # run as during inference to produce translations
-            output, attention_scores, logprobs = model.run_batch(
+            output, attention_scores, logprobs = model.run_batch(nbest=nbest,
                 batch=batch, beam_size=beam_size, beam_alpha=beam_alpha,
                 max_output_length=max_output_length, return_logp=return_logp)
 
             # sort outputs back to original order
-            all_outputs.extend(output[sort_reverse_index])
+            # nbest
+            reorder_output = []
+            for o in output:
+                reorder_output.extend(o[sort_reverse_index])
+            all_outputs.extend(reorder_output)
             if logprobs is not None:
                 valid_logprobs.extend(logprobs[sort_reverse_index])
             valid_attention_scores.extend(
                 attention_scores[sort_reverse_index]
                 if attention_scores is not None else [])
 
-        assert len(all_outputs) == len(data)
+        assert len(all_outputs) == len(data)*nbest
 
         if loss_function is not None and total_ntokens > 0:
             # total validation loss
@@ -215,6 +220,7 @@ def test(cfg_file,
     eval_metric = cfg["training"]["eval_metric"]
     max_output_length = cfg["training"].get("max_output_length", None)
     return_logp = cfg["testing"].get("return_logp", False)
+    nbest = cfg["testing"].get("nbest", 1)
 
     # load the data
     _, dev_data, test_data, src_vocab, trg_vocab = load_data(
@@ -249,7 +255,7 @@ def test(cfg_file,
         score, loss, ppl, sources, sources_raw, references, hypotheses, \
         hypotheses_raw, attention_scores, logprobs = validate_on_data(
             model, data=data_set, batch_size=batch_size,
-            batch_type=batch_type, level=level,
+            batch_type=batch_type, level=level, nbest=nbest,
             max_output_length=max_output_length, eval_metric=eval_metric,
             use_cuda=use_cuda, loss_function=None, beam_size=beam_size,
             beam_alpha=beam_alpha, return_logp=return_logp)
@@ -341,7 +347,7 @@ def translate(cfg_file, ckpt: str, output_path: str = None) -> None:
         score, loss, ppl, sources, sources_raw, references, hypotheses, \
         hypotheses_raw, attention_scores, log_probs = validate_on_data(
             model, data=test_data, batch_size=batch_size,
-            batch_type=batch_type, level=level,
+            batch_type=batch_type, level=level, nbest=nbest,
             max_output_length=max_output_length, eval_metric="",
             use_cuda=use_cuda, loss_function=None, beam_size=beam_size,
             beam_alpha=beam_alpha, return_logp=return_logp)
@@ -398,10 +404,12 @@ def translate(cfg_file, ckpt: str, output_path: str = None) -> None:
         beam_size = cfg["testing"].get("beam_size", 0)
         beam_alpha = cfg["testing"].get("alpha", -1)
         return_logp = cfg["testing"].get("return_logp", False)
+        nbest = cfg["testing"].get("nbest", 1)
     else:
         beam_size = 0
         beam_alpha = -1
         return_logp = False
+        nbest = 1
 
     if not sys.stdin.isatty():
         # file given

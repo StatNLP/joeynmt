@@ -419,14 +419,17 @@ def beam_search(
         return filled
 
     # from results to stacked outputs
-    assert n_best == 1
+    assert n_best >= 1
     # only works for n_best=1 for now
-    final_outputs = pad_and_stack_hyps([r[0].cpu().numpy() for r in
-                                        results["predictions"]],
-                                       pad_value=pad_index)
+    nbest_outputs = []
+    for n in range(n_best):
+        final_outputs = pad_and_stack_hyps([r[n].cpu().numpy() for r in
+                                            results["predictions"]],
+                                           pad_value=pad_index)
+        nbest_outputs.append(final_outputs)
     if return_logp:
         final_logprobs = np.array([r[0].item() for r in results["scores"]])
     else:
         final_logprobs = None
 
-    return final_outputs, None, final_logprobs
+    return nbest_outputs, None, final_logprobs

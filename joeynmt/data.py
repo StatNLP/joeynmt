@@ -8,6 +8,8 @@ import os.path
 import random
 from typing import Optional
 
+import logging
+
 from torchtext.datasets import TranslationDataset
 from torchtext import data
 from torchtext.data import Dataset, Iterator, Field
@@ -263,6 +265,7 @@ class WeightedTranslationDataset(Dataset):
                 src_line, trg_line = src_line.strip(), trg_line.strip()
                 weights = [float(weight) for weight in
                            weights_line.strip().split(" ")]
+                logging.info("FEEABCK WEIGHTS", feedback_weights)
                 if feedback_weights is not None:
                     # lookup weights for individual feedback types
                     weights = [feedback_weights.get(w, w) for w in weights]

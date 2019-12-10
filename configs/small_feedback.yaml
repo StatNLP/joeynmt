@@ -24,6 +24,7 @@ testing:  # specify which inference algorithm to use for testing (for validation
     beam_size: 5  # size of the beam for beam search
     alpha: 1.0  # length penalty for beam search
     return_logp: True  # store log probabilities of hypotheses as well
+    nbest: 10
 
 training: # specify training details here
     #load_model: "my_model/50.ckpt" # if given, load a pre-trained model from this checkpoint
