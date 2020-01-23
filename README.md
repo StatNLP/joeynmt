@@ -2,6 +2,8 @@
 [![Build Status](https://travis-ci.com/joeynmt/joeynmt.svg?branch=master)](https://travis-ci.org/joeynmt/joeynmt)
 [![Gitter](https://badges.gitter.im/joeynmt/community.svg)](https://gitter.im/joeynmt/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
+This is the version of the code used for learning from corrections and markings experiments.
+
 ## Goal and Purpose
 Joey NMT framework is developed for educational purposes. 
 It aims to be a **clean** and **minimalistic** code base to help novices 
